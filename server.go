@@ -29,7 +29,7 @@ func (c *callbacks) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse)
 func runEnvoyServer(envoyServer server.Server, stopCh <-chan struct{}) {
 
 	grpcServer := grpc.NewServer()
-	lis, err := net.Listen("tcp", "192.168.112.101:8080")
+	lis, err := net.Listen("tcp", "0.0.0.0:8080")
 	if err != nil {
 		log.Fatal("failed to listen")
 	}

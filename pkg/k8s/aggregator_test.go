@@ -12,6 +12,7 @@ import (
 func TestListReturnsEmptyWithNoObjects(t *testing.T) {
 	source := kt.NewFakeControllerSource()
 	a := NewIngressAggregator([]cache.ListerWatcher{source})
+	go reader(context.Background(), a.Events())
 	a.Run(context.Background())
 
 	ingresses, _ := a.List()
@@ -25,6 +26,7 @@ func TestReturnsIngresses(t *testing.T) {
 	source.Add(&v1beta1.Ingress{})
 
 	a := NewIngressAggregator([]cache.ListerWatcher{source})
+	go reader(context.Background(), a.Events())
 	a.Run(context.Background())
 
 	ingresses, err := a.List()
@@ -43,6 +45,7 @@ func TestReturnsFromMultipleIngressControllers(t *testing.T) {
 	source2.Add(&v1beta1.Ingress{})
 
 	a := NewIngressAggregator([]cache.ListerWatcher{source1, source2})
+	go reader(context.Background(), a.Events())
 	a.Run(context.Background())
 
 	ingresses, err := a.List()
@@ -52,4 +55,17 @@ func TestReturnsFromMultipleIngressControllers(t *testing.T) {
 	if len(ingresses) != 2 {
 		t.Errorf("expected 2 ingress, found %d", len(ingresses))
 	}
+}
+
+//Need something to read from the channel
+func reader(ctx context.Context, events chan interface{}) {
+	go func() {
+		for {
+			select {
+			case <-events:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }

@@ -18,8 +18,10 @@ import (
 )
 
 type options struct {
-	kubeconfig []string
-	debugLog   bool
+	kubeconfig   []string
+	debugLog     bool
+	ingressClass string
+	nodeName     string
 }
 
 // Hasher returns node ID as an ID
@@ -37,6 +39,8 @@ func (h Hasher) ID(node *core.Node) string {
 func main() {
 	opts := &options{}
 	kingpin.Flag("kubeconfig", "Path to kubeconfig.").StringsVar(&opts.kubeconfig)
+	kingpin.Flag("ingress-class", "Ingress class to watch").StringVar(&opts.ingressClass)
+	kingpin.Flag("node-name", "Envoy node name").StringVar(&opts.nodeName)
 	kingpin.Flag("debug", "Log at debug level").BoolVar(&opts.debugLog)
 	kingpin.Parse()
 
@@ -69,7 +73,7 @@ func main() {
 	envoyCache := cache.NewSnapshotCache(false, hash, nil)
 
 	lister := k8s.NewIngressAggregator(sources)
-	configurator := envoy.NewKubernetesConfigurator(lister, "multi-cluster", "hello")
+	configurator := envoy.NewKubernetesConfigurator(lister, opts.ingressClass, opts.nodeName)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister.Events())
 	go snapshotter.Run(ctx)
 	lister.Run(ctx)
