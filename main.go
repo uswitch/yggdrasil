@@ -68,7 +68,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	//envoyNode := "hello"
 	hash := Hasher{}
 	envoyCache := cache.NewSnapshotCache(false, hash, nil)
 
