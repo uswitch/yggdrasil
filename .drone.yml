@@ -20,7 +20,7 @@ pipeline:
     secrets: [ docker_username, docker_password ]
     tags:
       - latest
-      - ${DRONE_COMMMIT_SHA}
+      - ${DRONE_COMMIT_SHA}
     when:
       event: push
       branch: master
