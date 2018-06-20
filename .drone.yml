@@ -1,0 +1,14 @@
+workspace:
+  base: /go
+  path: src/github.com/uswitch/yggdrasil
+
+pipeline:
+  test:
+    image: golang:1.10
+    commands:
+      - go test -v -cover $(go list ./... | grep -v /vendor)
+
+  build:
+    image: golang:1.10
+    commands:
+      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/yggdrasil
