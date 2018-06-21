@@ -11,6 +11,8 @@ Yggdrasil can be configured using a config file:
 {
   "nodeName": "foo",
   "ingressClass": "multi-cluster",
+  "cert": "path/to/cert",
+  "key": "path/to/key",
   "clusters": [
     {
       "token": "xxxxxxxxxxxxxxxx",
@@ -29,10 +31,12 @@ Each cluster represents a different Kubernetes cluster with the token being a se
 
 ## Flags
 ```
---help                         Show context-sensitive help (also try --help-long and --help-man).
---kubeconfig=KUBECONFIG ...    Path to kubeconfig.
---ingress-class=INGRESS-CLASS  Ingress class to watch
---node-name=NODE-NAME          Envoy node name
---debug                        Log at debug level
---config=CONFIG                Config file path
+--cert string               certfile
+--config string             config file
+--debug                     Log at debug level
+--help                      help for yggdrasil
+--ingress-class string      Ingress class to watch
+--key string                keyfile
+--kube-config stringArray   Path to kube config
+--node-name string          envoy node name
 ```
