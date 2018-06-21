@@ -39,13 +39,9 @@ type Hasher struct {
 }
 
 var (
-	cfgFile      string
-	ingressClass string
-	nodeName     string
-	sources      []k8scache.ListerWatcher
-	cert         string
-	key          string
-	kubeConfig   []string
+	cfgFile    string
+	sources    []k8scache.ListerWatcher
+	kubeConfig []string
 )
 
 var rootCmd = &cobra.Command{
@@ -65,10 +61,10 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
-	rootCmd.PersistentFlags().StringVar(&nodeName, "node-name", "", "envoy node name")
-	rootCmd.PersistentFlags().StringVar(&cert, "cert", "", "certfile")
-	rootCmd.PersistentFlags().StringVar(&key, "key", "", "keyfile")
-	rootCmd.PersistentFlags().StringVar(&ingressClass, "ingress-class", "", "Ingress class to watch")
+	rootCmd.PersistentFlags().String("node-name", "", "envoy node name")
+	rootCmd.PersistentFlags().String("cert", "", "certfile")
+	rootCmd.PersistentFlags().String("key", "", "keyfile")
+	rootCmd.PersistentFlags().String("ingress-class", "", "Ingress class to watch")
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
@@ -120,7 +116,7 @@ func main(*cobra.Command, []string) error {
 	envoyCache := cache.NewSnapshotCache(false, hash, nil)
 
 	lister := k8s.NewIngressAggregator(sources)
-	configurator := envoy.NewKubernetesConfigurator(lister, viper.GetString("ingressClass"), viper.GetString("nodeName"), viper.GetString(cert), viper.GetString(key))
+	configurator := envoy.NewKubernetesConfigurator(lister, viper.GetString("ingressClass"), viper.GetString("nodeName"), viper.GetString("cert"), viper.GetString("key"))
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister.Events())
 	go snapshotter.Run(ctx)
 	lister.Run(ctx)
