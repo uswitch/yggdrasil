@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -39,7 +40,7 @@ func makeVirtualHost(host string, timeout time.Duration) route.VirtualHost {
 	return virtualHost
 }
 
-func makeListener(virtualHosts []route.VirtualHost) []cache.Resource {
+func makeListener(virtualHosts []route.VirtualHost, cert, key string) []cache.Resource {
 	httpFilter := &hcm.HttpConnectionManager{
 		CodecType:  hcm.AUTO,
 		StatPrefix: "ingress_http",
@@ -59,6 +60,24 @@ func makeListener(virtualHosts []route.VirtualHost) []cache.Resource {
 		log.Fatalf("failed to convert: %s", err)
 	}
 
+	tls := &auth.DownstreamTlsContext{}
+	if cert != "" && key != "" {
+		tls.CommonTlsContext = &auth.CommonTlsContext{
+			TlsCertificates: []*auth.TlsCertificate{
+				&auth.TlsCertificate{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{Filename: cert},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{Filename: key},
+					},
+				},
+			},
+		}
+	} else {
+		tls = nil
+	}
+
 	listener := v2.Listener{
 		Name: "listener_0",
 		Address: core.Address{
@@ -72,6 +91,7 @@ func makeListener(virtualHosts []route.VirtualHost) []cache.Resource {
 			},
 		},
 		FilterChains: []listener.FilterChain{listener.FilterChain{
+			TlsContext: tls,
 			Filters: []listener.Filter{listener.Filter{
 				Name:   "envoy.http_connection_manager",
 				Config: httpConfig,

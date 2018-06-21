@@ -37,12 +37,16 @@ type config struct {
 	IngressClass string          `json:"ingressClass"`
 	NodeName     string          `json:"nodeName"`
 	Clusters     []clusterConfig `json:"clusters"`
+	Cert         string          `json:"cert"`
+	Key          string          `json:"key"`
 }
 
 var (
 	ingressClass string
 	nodeName     string
 	sources      []k8scache.ListerWatcher
+	cert         string
+	key          string
 )
 
 // Hasher returns node ID as an ID
@@ -112,7 +116,7 @@ func main() {
 	envoyCache := cache.NewSnapshotCache(false, hash, nil)
 
 	lister := k8s.NewIngressAggregator(sources)
-	configurator := envoy.NewKubernetesConfigurator(lister, ingressClass, nodeName)
+	configurator := envoy.NewKubernetesConfigurator(lister, ingressClass, nodeName, cert, key)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister.Events())
 	go snapshotter.Run(ctx)
 	lister.Run(ctx)
@@ -143,6 +147,8 @@ func parseConfig(path string) error {
 
 	ingressClass = conf.IngressClass
 	nodeName = conf.NodeName
+	cert = conf.Cert
+	key = conf.Key
 
 	for _, cluster := range conf.Clusters {
 		config := &rest.Config{
