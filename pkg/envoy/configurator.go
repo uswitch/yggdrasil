@@ -14,6 +14,8 @@ type KubernetesConfigurator struct {
 	lister       k8s.IngressLister
 	ingressClass string
 	nodeID       string
+	cert         string
+	key          string
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -22,8 +24,8 @@ type KubernetesConfigurator struct {
 }
 
 //NewKubernetesConfigurator returns a Kubernetes configurator given a lister and ingress class
-func NewKubernetesConfigurator(lister k8s.IngressLister, ingressClass, nodeID string) *KubernetesConfigurator {
-	return &KubernetesConfigurator{lister: lister, ingressClass: ingressClass, nodeID: nodeID}
+func NewKubernetesConfigurator(lister k8s.IngressLister, ingressClass, nodeID, cert, key string) *KubernetesConfigurator {
+	return &KubernetesConfigurator{lister: lister, ingressClass: ingressClass, nodeID: nodeID, cert: cert, key: key}
 }
 
 //Generate creates a new snapshot
@@ -54,7 +56,7 @@ func (c *KubernetesConfigurator) generateSnapshot(config *envoyConfiguration) ca
 	for _, virtualHost := range config.VirtualHosts {
 		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost.Host, timeout))
 	}
-	listener := makeListener(virtualHosts)
+	listener := makeListener(virtualHosts, c.cert, c.key)
 
 	clusterItems := []cache.Resource{}
 	for _, cluster := range config.Clusters {
