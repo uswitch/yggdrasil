@@ -122,12 +122,28 @@ func makeAddresses(addresses []string) []*core.Address {
 	return envoyAddresses
 }
 
-func makeCluster(host string, addresses []*core.Address) *v2.Cluster {
+func makeCluster(host, ca string, addresses []*core.Address) *v2.Cluster {
+
+	tls := &auth.UpstreamTlsContext{}
+	if ca != "" {
+		tls.CommonTlsContext = &auth.CommonTlsContext{
+			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+				ValidationContext: &auth.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{Filename: ca},
+					},
+				},
+			},
+		}
+	} else {
+		tls = nil
+	}
 	cluster := &v2.Cluster{
 		Type:           v2.Cluster_STRICT_DNS,
 		Name:           host,
 		ConnectTimeout: time.Second * 30,
 		Hosts:          addresses,
+		TlsContext:     tls,
 	}
 	return cluster
 }
