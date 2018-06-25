@@ -12,6 +12,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
 )
 
 func makeVirtualHost(host string, timeout time.Duration) route.VirtualHost {
@@ -122,7 +123,7 @@ func makeAddresses(addresses []string) []*core.Address {
 	return envoyAddresses
 }
 
-func makeCluster(host, ca string, addresses []*core.Address) *v2.Cluster {
+func makeCluster(host, ca, healthPath string, addresses []*core.Address) *v2.Cluster {
 
 	tls := &auth.UpstreamTlsContext{}
 	if ca != "" {
@@ -144,6 +145,17 @@ func makeCluster(host, ca string, addresses []*core.Address) *v2.Cluster {
 		ConnectTimeout: time.Second * 30,
 		Hosts:          addresses,
 		TlsContext:     tls,
+		HealthChecks: []*core.HealthCheck{&core.HealthCheck{
+			Timeout:            &types.Duration{Seconds: 5},
+			Interval:           &types.Duration{Seconds: 10},
+			UnhealthyThreshold: &types.UInt32Value{Value: 3},
+			HealthyThreshold:   &types.UInt32Value{Value: 3},
+			HealthChecker: &core.HealthCheck_HttpHealthCheck_{
+				HttpHealthCheck: &core.HealthCheck_HttpHealthCheck{
+					Path: healthPath,
+				},
+			},
+		}},
 	}
 	return cluster
 }
