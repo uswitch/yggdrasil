@@ -70,8 +70,9 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 }
 
 type cluster struct {
-	Name  string
-	Hosts []string
+	Name            string
+	HealthCheckPath string
+	Hosts           []string
 }
 
 func (c *cluster) identity() string {
@@ -84,6 +85,10 @@ func (c *cluster) Equals(other *cluster) bool {
 	}
 
 	if c.Name != other.Name {
+		return false
+	}
+
+	if c.HealthCheckPath != other.HealthCheckPath {
 		return false
 	}
 
@@ -125,17 +130,23 @@ func classFilter(ingresses []v1beta1.Ingress, ingressClass string) []v1beta1.Ing
 func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	ingressToStatusHosts := map[string][]string{}
+	ingressHealthChecks := map[string]string{}
 
 	for _, i := range ingresses {
 		for _, j := range i.Status.LoadBalancer.Ingress {
 			for _, rule := range i.Spec.Rules {
 				ingressToStatusHosts[rule.Host] = append(ingressToStatusHosts[rule.Host], j.Hostname)
+				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
+					ingressHealthChecks[rule.Host] = i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"]
+				} else {
+					ingressHealthChecks[rule.Host] = "/"
+				}
 			}
 		}
 	}
 
 	for ingress, hosts := range ingressToStatusHosts {
-		cfg.Clusters = append(cfg.Clusters, &cluster{Name: ingress, Hosts: hosts})
+		cfg.Clusters = append(cfg.Clusters, &cluster{Name: ingress, Hosts: hosts, HealthCheckPath: ingressHealthChecks[ingress]})
 		cfg.VirtualHosts = append(cfg.VirtualHosts, &virtualHost{Host: ingress})
 	}
 
