@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -24,6 +25,7 @@ type clusterConfig struct {
 	APIServer string `json:"apiServer"`
 	Ca        string `json:"ca"`
 	Token     string `json:"token"`
+	TokenPath string `json:"tokenPath"`
 }
 
 type config struct {
@@ -140,8 +142,21 @@ func createClientConfig(path string) (*rest.Config, error) {
 
 func createSources(clusters []clusterConfig) error {
 	for _, cluster := range clusters {
+
+		var token string
+
+		if cluster.TokenPath != "" {
+			bytes, err := ioutil.ReadFile(cluster.TokenPath)
+			if err != nil {
+				return err
+			}
+			token = string(bytes)
+		} else {
+			token = cluster.Token
+		}
+
 		config := &rest.Config{
-			BearerToken: cluster.Token,
+			BearerToken: token,
 			Host:        cluster.APIServer,
 			TLSClientConfig: rest.TLSClientConfig{
 				CAFile: cluster.Ca,

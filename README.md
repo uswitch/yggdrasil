@@ -20,7 +20,7 @@ Yggdrasil can be configured using a config file:
       "ca": "pathto/cluster1/ca"
     },
     {
-      "token": "xxxxxxxxxxxxxxxx",
+      "tokenPath": "/path/to/a/token",
       "apiServer": "https://cluster2.api.com",
       "ca": "pathto/cluster2/ca"
     }
