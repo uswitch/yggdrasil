@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -92,6 +93,7 @@ func initConfig() {
 }
 
 func main(*cobra.Command, []string) error {
+	flag.Set("logtostderr", "true")
 	var c config
 	err := viper.Unmarshal(&c)
 	if err != nil {
