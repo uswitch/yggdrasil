@@ -1,5 +1,5 @@
 FROM scratch
 
-ADD bin/yggdrasil yggdrasil
+ADD bin/yggdrasil-linux-amd64 yggdrasil
 
 ENTRYPOINT ["/yggdrasil"]

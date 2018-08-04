@@ -41,8 +41,8 @@ func makeVirtualHost(host string, timeout time.Duration) route.VirtualHost {
 	return virtualHost
 }
 
-func makeListener(virtualHosts []route.VirtualHost, cert, key string) []cache.Resource {
-	httpFilter := &hcm.HttpConnectionManager{
+func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnectionManager {
+	return &hcm.HttpConnectionManager{
 		CodecType:  hcm.AUTO,
 		StatPrefix: "ingress_http",
 		HttpFilters: []*hcm.HttpFilter{&hcm.HttpFilter{
@@ -54,9 +54,15 @@ func makeListener(virtualHosts []route.VirtualHost, cert, key string) []cache.Re
 				VirtualHosts: virtualHosts,
 			},
 		},
+		Tracing: &hcm.HttpConnectionManager_Tracing{
+			OperationName: hcm.EGRESS,
+		},
 	}
+}
 
-	httpConfig, err := util.MessageToStruct(httpFilter)
+func makeListener(virtualHosts []route.VirtualHost, cert, key string) []cache.Resource {
+	httpConnectionManager := makeConnectionManager(virtualHosts)
+	httpConfig, err := util.MessageToStruct(httpConnectionManager)
 	if err != nil {
 		log.Fatalf("failed to convert: %s", err)
 	}
