@@ -6,12 +6,12 @@ pipeline:
   test:
     image: golang:1.10
     commands:
-      - go test -v -cover $(go list ./... | grep -v /vendor)
+      - make test
 
   build:
     image: golang:1.10
     commands:
-      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/yggdrasil
+      - make build-linux
 
   docker-latest:
     image: plugins/docker
@@ -29,8 +29,8 @@ pipeline:
     image: plugins/docker
     repo: quay.io/uswitch/yggdrasil
     registry: quay.io
+    auto_tag: true
     secrets: [ docker_username, docker_password ]
-    tags:
-      - ${DRONE_TAG}
     when:
       event: tag
+      branch: master
