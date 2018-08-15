@@ -115,12 +115,14 @@ func (cfg *envoyConfiguration) equals(oldCfg *envoyConfiguration) (vmatch bool, 
 	return VirtualHostsEquals(cfg.VirtualHosts, oldCfg.VirtualHosts), ClustersEquals(cfg.Clusters, oldCfg.Clusters)
 }
 
-func classFilter(ingresses []v1beta1.Ingress, ingressClass string) []v1beta1.Ingress {
+func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.Ingress {
 	is := make([]v1beta1.Ingress, 0)
 
 	for _, i := range ingresses {
-		if i.GetAnnotations()["kubernetes.io/ingress.class"] == ingressClass {
-			is = append(is, i)
+		for _, class := range ingressClass {
+			if i.GetAnnotations()["kubernetes.io/ingress.class"] == class {
+				is = append(is, i)
+			}
 		}
 	}
 

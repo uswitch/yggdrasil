@@ -177,6 +177,27 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 	}
 }
 
+func TestFilterMatchingIngresses(t *testing.T) {
+	ingress := []v1beta1.Ingress{
+		newIngress("host", "balancer"),
+	}
+	ingressClasses := []string{"bar"}
+	matchingIngresses := classFilter(ingress, ingressClasses)
+	if len(matchingIngresses) != 1 {
+		t.Errorf("expected one ingress to match class bar, got %d ingresses", len(matchingIngresses))
+	}
+}
+func TestFilterNonMatchingIngresses(t *testing.T) {
+	ingress := []v1beta1.Ingress{
+		newIngress("host", "balancer"),
+	}
+	ingressClasses := []string{"another-class"}
+	matchingIngresses := classFilter(ingress, ingressClasses)
+	if len(matchingIngresses) != 0 {
+		t.Errorf("expected no ingress to match class another-class, got %d ingresses", len(matchingIngresses))
+	}
+}
+
 func newIngress(specHost string, loadbalancerHost string) v1beta1.Ingress {
 	return v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
