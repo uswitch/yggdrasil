@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"fmt"
 	"net"
+	"net/http"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	discover "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/server"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -28,7 +32,11 @@ func (c *callbacks) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse)
 
 func runEnvoyServer(envoyServer server.Server, stopCh <-chan struct{}) {
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
+		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
+	)
+
 	lis, err := net.Listen("tcp", "0.0.0.0:8080")
 	if err != nil {
 		log.Fatal("failed to listen")
@@ -40,12 +48,33 @@ func runEnvoyServer(envoyServer server.Server, stopCh <-chan struct{}) {
 	v2.RegisterRouteDiscoveryServiceServer(grpcServer, envoyServer)
 	v2.RegisterListenerDiscoveryServiceServer(grpcServer, envoyServer)
 
+	healthMux := http.NewServeMux()
+
+	healthServer := &http.Server{
+		Addr:    fmt.Sprintf(":8081"),
+		Handler: healthMux,
+	}
+
+	healthMux.Handle("/metrics", promhttp.Handler())
+	healthMux.HandleFunc("/healthz", health)
+
 	go func() {
-		if err = grpcServer.Serve(lis); err != nil {
-			log.Error(err)
+		if err = healthServer.ListenAndServe(); err != nil {
+			log.Fatalf("Failed to listen and serve health server: %v", err)
 		}
 	}()
+
+	go func() {
+		if err = grpcServer.Serve(lis); err != nil {
+			log.Fatalf("Failed to start grpc server: %v", err)
+		}
+	}()
+
 	<-stopCh
 	log.Info("shutting down server")
 	grpcServer.GracefulStop()
+}
+
+func health(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
 }
