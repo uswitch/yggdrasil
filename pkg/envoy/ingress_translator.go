@@ -125,7 +125,7 @@ func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.I
 			}
 		}
 	}
-
+	matchingIngresses.Set(float64(len(is)))
 	return is
 }
 
@@ -151,6 +151,9 @@ func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
 		cfg.Clusters = append(cfg.Clusters, &cluster{Name: ingress, Hosts: hosts, HealthCheckPath: ingressHealthChecks[ingress]})
 		cfg.VirtualHosts = append(cfg.VirtualHosts, &virtualHost{Host: ingress})
 	}
+
+	numVhosts.Set(float64(len(cfg.VirtualHosts)))
+	numClusters.Set(float64(len(cfg.Clusters)))
 
 	return cfg
 }

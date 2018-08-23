@@ -68,10 +68,12 @@ func (c *KubernetesConfigurator) generateSnapshot(config *envoyConfiguration) ca
 
 	if !vmatch {
 		c.listenerVersion = time.Now().String()
+		listenerUpdates.Inc()
 	}
 
 	if !cmatch {
 		c.clusterVersion = time.Now().String()
+		clusterUpdates.Inc()
 	}
 	c.previousConfig = config
 	clusters := cache.NewResources(c.clusterVersion, clusterItems)

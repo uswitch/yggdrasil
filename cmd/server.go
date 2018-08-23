@@ -59,14 +59,14 @@ func runEnvoyServer(envoyServer server.Server, stopCh <-chan struct{}) {
 	healthMux.HandleFunc("/healthz", health)
 
 	go func() {
-		if err = healthServer.ListenAndServe(); err != nil {
-			log.Fatalf("Failed to listen and serve health server: %v", err)
+		if err = grpcServer.Serve(lis); err != nil {
+			log.Fatalf("Failed to start grpc server: %v", err)
 		}
 	}()
 
 	go func() {
-		if err = grpcServer.Serve(lis); err != nil {
-			log.Fatalf("Failed to start grpc server: %v", err)
+		if err = healthServer.ListenAndServe(); err != nil {
+			log.Fatalf("Failed to listen and serve health server: %v", err)
 		}
 	}()
 
