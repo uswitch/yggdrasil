@@ -9,6 +9,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	fal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
+	al "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
@@ -42,6 +44,10 @@ func makeVirtualHost(host string, timeout time.Duration) route.VirtualHost {
 }
 
 func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnectionManager {
+	accessLogConfig, err := util.MessageToStruct(&fal.FileAccessLog{Path: "/var/log/envoy/access.log"})
+	if err != nil {
+		log.Fatalf("failed to convert: %s", err)
+	}
 	return &hcm.HttpConnectionManager{
 		CodecType:  hcm.AUTO,
 		StatPrefix: "ingress_http",
@@ -56,6 +62,12 @@ func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnection
 		},
 		Tracing: &hcm.HttpConnectionManager_Tracing{
 			OperationName: hcm.EGRESS,
+		},
+		AccessLog: []*al.AccessLog{
+			{
+				Name:   "envoy.file_access_log",
+				Config: accessLogConfig,
+			},
 		},
 	}
 }
