@@ -1,6 +1,7 @@
 package envoy
 
 import (
+	"encoding/json"
 	"log"
 	"time"
 
@@ -16,6 +17,38 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 )
+
+var (
+	jsonFormat string
+)
+
+func init() {
+	format := map[string]string{
+		"start_time":                "%START_TIME(%s.%3f)%",
+		"bytes_received":            "%BYTES_RECEIVED%",
+		"protocol":                  "%PROTOCOL%",
+		"response_code":             "%RESPONSE_CODE%",
+		"bytes_sent":                "%BYTES_SENT%",
+		"duration":                  "%DURATION%",
+		"response_flags":            "%RESPONSE_FLAGS%",
+		"upstream_host":             "%UPSTREAM_HOST%",
+		"upstream_cluster":          "%UPSTREAM_CLUSTER%",
+		"upstream_local_address":    "%UPSTREAM_LOCAL_ADDRESS%",
+		"downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%",
+		"downstream_local_address":  "%DOWNSTREAM_LOCAL_ADDRESS%",
+		"request_method":            "%REQ(:METHOD)%",
+		"request_path":              "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+		"upstream_service_time":     "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+		"forwarded_for":             "%REQ(X-FORWARDED-FOR)%",
+		"user_agent":                "%REQ(USER-AGENT)%",
+		"request_id":                "%REQ(X-REQUEST-ID)%",
+	}
+	b, err := json.Marshal(format)
+	if err != nil {
+		log.Fatal(err)
+	}
+	jsonFormat = string(b) + "\n"
+}
 
 func makeVirtualHost(host string, timeout time.Duration) route.VirtualHost {
 	virtualHost := route.VirtualHost{
@@ -44,7 +77,10 @@ func makeVirtualHost(host string, timeout time.Duration) route.VirtualHost {
 }
 
 func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnectionManager {
-	accessLogConfig, err := util.MessageToStruct(&fal.FileAccessLog{Path: "/var/log/envoy/access.log"})
+	accessLogConfig, err := util.MessageToStruct(&fal.FileAccessLog{
+		Path:   "/var/log/envoy/access.log",
+		Format: jsonFormat,
+	})
 	if err != nil {
 		log.Fatalf("failed to convert: %s", err)
 	}
