@@ -58,6 +58,12 @@
 			"revisionTime": "2018-06-13T22:11:37Z"
 		},
 		{
+			"checksumSHA1": "qgmo6lsdJvBo6zEsZlvB0aw+e7s=",
+			"path": "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2",
+			"revision": "bc01fbfcb66faf0bf61e1e98a7b189689a7066a1",
+			"revisionTime": "2018-06-13T22:11:37Z"
+		},
+		{
 			"checksumSHA1": "+YD1K6aaVrmc+6bMa6+UWcEtfvw=",
 			"path": "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2",
 			"revision": "bc01fbfcb66faf0bf61e1e98a7b189689a7066a1",
