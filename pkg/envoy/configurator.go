@@ -62,7 +62,7 @@ func (c *KubernetesConfigurator) generateSnapshot(config *envoyConfiguration) ca
 	clusterItems := []cache.Resource{}
 	for _, cluster := range config.Clusters {
 		addresses := makeAddresses(cluster.Hosts)
-		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, addresses)
+		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, cluster.Timeout, addresses)
 		clusterItems = append(clusterItems, cluster)
 	}
 
