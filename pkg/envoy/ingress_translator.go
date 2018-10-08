@@ -2,6 +2,7 @@ package envoy
 
 import (
 	"sort"
+	"time"
 
 	"k8s.io/api/extensions/v1beta1"
 )
@@ -72,6 +73,7 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 type cluster struct {
 	Name            string
 	HealthCheckPath string
+	Timeout         time.Duration
 	Hosts           []string
 }
 
@@ -133,22 +135,36 @@ func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	ingressToStatusHosts := map[string][]string{}
 	ingressHealthChecks := map[string]string{}
+	ingressTimeouts := map[string]time.Duration{}
 
 	for _, i := range ingresses {
 		for _, j := range i.Status.LoadBalancer.Ingress {
 			for _, rule := range i.Spec.Rules {
 				ingressToStatusHosts[rule.Host] = append(ingressToStatusHosts[rule.Host], j.Hostname)
+				ingressTimeouts[rule.Host] = time.Second * 30
+
 				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
 					ingressHealthChecks[rule.Host] = i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"]
 				} else {
 					ingressHealthChecks[rule.Host] = "/"
+				}
+
+				if i.GetAnnotations()["yggdrasil.uswitch.com/timeout"] != "" {
+					timeout, err := time.ParseDuration(i.GetAnnotations()["yggdrasil.uswitch.com/timeout"])
+					if err == nil {
+						ingressTimeouts[rule.Host] = timeout
+					}
 				}
 			}
 		}
 	}
 
 	for ingress, hosts := range ingressToStatusHosts {
-		cfg.Clusters = append(cfg.Clusters, &cluster{Name: ingress, Hosts: hosts, HealthCheckPath: ingressHealthChecks[ingress]})
+		cfg.Clusters = append(cfg.Clusters, &cluster{
+			Name:            ingress,
+			Hosts:           hosts,
+			HealthCheckPath: ingressHealthChecks[ingress],
+			Timeout:         ingressTimeouts[ingress]})
 		cfg.VirtualHosts = append(cfg.VirtualHosts, &virtualHost{Host: ingress})
 	}
 
