@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
@@ -19,7 +20,6 @@ import (
 	"k8s.io/client-go/rest"
 	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/kubernetes/staging/src/k8s.io/sample-controller/pkg/signals"
 )
 
 type clusterConfig struct {
@@ -109,7 +109,8 @@ func main(*cobra.Command, []string) error {
 		return fmt.Errorf("error creating sources: %s", err)
 	}
 
-	stopCh := signals.SetupSignalHandler()
+	stopCh := make(chan os.Signal, 1)
+	signal.Notify(stopCh, os.Interrupt, syscall.SIGTERM)
 
 	err = configFromKubeConfig(kubeConfig)
 	if err != nil {
