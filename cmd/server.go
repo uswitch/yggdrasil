@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -19,12 +20,15 @@ type callbacks struct {
 	fetchResp int
 }
 
-func (c *callbacks) OnStreamOpen(int64, string)                                          {}
+func (c *callbacks) OnStreamOpen(context.Context, int64, string) error {
+	return nil
+}
 func (c *callbacks) OnStreamClosed(int64)                                                {}
 func (c *callbacks) OnStreamRequest(int64, *v2.DiscoveryRequest)                         {}
 func (c *callbacks) OnStreamResponse(int64, *v2.DiscoveryRequest, *v2.DiscoveryResponse) {}
-func (c *callbacks) OnFetchRequest(*v2.DiscoveryRequest) {
+func (c *callbacks) OnFetchRequest(context.Context, *v2.DiscoveryRequest) error {
 	c.fetchReq++
+	return nil
 }
 func (c *callbacks) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse) {
 	c.fetchResp++
