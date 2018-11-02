@@ -146,7 +146,7 @@ func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
 				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
 					ingressHealthChecks[rule.Host] = i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"]
 				} else {
-					ingressHealthChecks[rule.Host] = "/"
+					ingressHealthChecks[rule.Host] = ""
 				}
 
 				if i.GetAnnotations()["yggdrasil.uswitch.com/timeout"] != "" {

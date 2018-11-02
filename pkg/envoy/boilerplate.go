@@ -177,6 +177,27 @@ func makeAddresses(addresses []string) []*core.Address {
 	return envoyAddresses
 }
 
+func makeHealthChecks(healthPath string) []*core.HealthCheck {
+	healthChecks := []*core.HealthCheck{}
+
+	if healthPath != "" {
+		check := &core.HealthCheck{
+			Timeout:            &types.Duration{Seconds: 5},
+			Interval:           &types.Duration{Seconds: 10},
+			UnhealthyThreshold: &types.UInt32Value{Value: 3},
+			HealthyThreshold:   &types.UInt32Value{Value: 3},
+			HealthChecker: &core.HealthCheck_HttpHealthCheck_{
+				HttpHealthCheck: &core.HealthCheck_HttpHealthCheck{
+					Path: healthPath,
+				},
+			},
+		}
+		healthChecks = append(healthChecks, check)
+	}
+
+	return healthChecks
+}
+
 func makeCluster(host, ca, healthPath string, timeout time.Duration, addresses []*core.Address) *v2.Cluster {
 
 	tls := &auth.UpstreamTlsContext{}
@@ -193,23 +214,15 @@ func makeCluster(host, ca, healthPath string, timeout time.Duration, addresses [
 	} else {
 		tls = nil
 	}
+	healthChecks := makeHealthChecks(healthPath)
+
 	cluster := &v2.Cluster{
 		Type:           v2.Cluster_STRICT_DNS,
 		Name:           host,
 		ConnectTimeout: timeout,
 		Hosts:          addresses,
 		TlsContext:     tls,
-		HealthChecks: []*core.HealthCheck{&core.HealthCheck{
-			Timeout:            &types.Duration{Seconds: 5},
-			Interval:           &types.Duration{Seconds: 10},
-			UnhealthyThreshold: &types.UInt32Value{Value: 3},
-			HealthyThreshold:   &types.UInt32Value{Value: 3},
-			HealthChecker: &core.HealthCheck_HttpHealthCheck_{
-				HttpHealthCheck: &core.HealthCheck_HttpHealthCheck{
-					Path: healthPath,
-				},
-			},
-		}},
+		HealthChecks:   healthChecks,
 	}
 	return cluster
 }
