@@ -90,6 +90,11 @@ func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnection
 		HttpFilters: []*hcm.HttpFilter{&hcm.HttpFilter{
 			Name: "envoy.router",
 		}},
+		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
+			{
+				UpgradeType: "websocket",
+			},
+		},
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: &v2.RouteConfiguration{
 				Name:         "local_route",
