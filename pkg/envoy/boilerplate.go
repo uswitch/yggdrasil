@@ -90,6 +90,11 @@ func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnection
 		HttpFilters: []*hcm.HttpFilter{&hcm.HttpFilter{
 			Name: "envoy.router",
 		}},
+		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
+			{
+				UpgradeType: "websocket",
+			},
+		},
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: &v2.RouteConfiguration{
 				Name:         "local_route",
@@ -179,11 +184,13 @@ func makeAddresses(addresses []string) []*core.Address {
 
 func makeHealthChecks(healthPath string) []*core.HealthCheck {
 	healthChecks := []*core.HealthCheck{}
+	healthCheckTimeout, _ := time.ParseDuration("5s")
+	healthCheckInterval, _ := time.ParseDuration("10s")
 
 	if healthPath != "" {
 		check := &core.HealthCheck{
-			Timeout:            &types.Duration{Seconds: 5},
-			Interval:           &types.Duration{Seconds: 10},
+			Timeout:            &healthCheckTimeout,
+			Interval:           &healthCheckInterval,
 			UnhealthyThreshold: &types.UInt32Value{Value: 3},
 			HealthyThreshold:   &types.UInt32Value{Value: 3},
 			HealthChecker: &core.HealthCheck_HttpHealthCheck_{
