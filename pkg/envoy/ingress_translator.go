@@ -149,6 +149,7 @@ func newEnvoyIngress(host string) *envoyIngress {
 			Name:    host,
 			Hosts:   []string{},
 			Timeout: (30 * time.Second),
+			HealthCheckPath: ""
 		},
 	}
 }
