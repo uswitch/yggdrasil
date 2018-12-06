@@ -146,10 +146,10 @@ func newEnvoyIngress(host string) *envoyIngress {
 			PerTryTimeout: (5 * time.Second),
 		},
 		cluster: &cluster{
-			Name:    host,
-			Hosts:   []string{},
-			Timeout: (30 * time.Second),
-			HealthCheckPath: ""
+			Name:            host,
+			Hosts:           []string{},
+			Timeout:         (30 * time.Second),
+			HealthCheckPath: "",
 		},
 	}
 }
