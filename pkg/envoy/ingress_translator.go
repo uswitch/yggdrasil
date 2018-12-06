@@ -59,7 +59,9 @@ type envoyConfiguration struct {
 }
 
 type virtualHost struct {
-	Host string
+	Host          string
+	Timeout       time.Duration
+	PerTryTimeout time.Duration
 }
 
 func (v *virtualHost) Equals(other *virtualHost) bool {
@@ -165,7 +167,10 @@ func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
 			Hosts:           hosts,
 			HealthCheckPath: ingressHealthChecks[ingress],
 			Timeout:         ingressTimeouts[ingress]})
-		cfg.VirtualHosts = append(cfg.VirtualHosts, &virtualHost{Host: ingress})
+		cfg.VirtualHosts = append(cfg.VirtualHosts, &virtualHost{
+			Host:          ingress,
+			Timeout:       ingressTimeouts[ingress],
+			PerTryTimeout: ingressTimeouts[ingress]})
 	}
 
 	numVhosts.Set(float64(len(cfg.VirtualHosts)))

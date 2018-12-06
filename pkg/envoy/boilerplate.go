@@ -50,10 +50,10 @@ func init() {
 	jsonFormat = string(b) + "\n"
 }
 
-func makeVirtualHost(host string, timeout time.Duration) route.VirtualHost {
+func makeVirtualHost(vhost *virtualHost) route.VirtualHost {
 	virtualHost := route.VirtualHost{
 		Name:    "local_service",
-		Domains: []string{host},
+		Domains: []string{vhost.Host},
 		Routes: []route.Route{route.Route{
 			Match: route.RouteMatch{
 				PathSpecifier: &route.RouteMatch_Prefix{
@@ -62,12 +62,13 @@ func makeVirtualHost(host string, timeout time.Duration) route.VirtualHost {
 			},
 			Action: &route.Route_Route{
 				Route: &route.RouteAction{
+					Timeout: &vhost.Timeout,
 					ClusterSpecifier: &route.RouteAction_Cluster{
-						Cluster: host,
+						Cluster: vhost.Host,
 					},
 					RetryPolicy: &route.RouteAction_RetryPolicy{
 						RetryOn:       "5xx",
-						PerTryTimeout: &timeout,
+						PerTryTimeout: &vhost.PerTryTimeout,
 					},
 				},
 			},

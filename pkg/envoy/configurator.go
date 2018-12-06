@@ -52,10 +52,9 @@ func (c *KubernetesConfigurator) generateSnapshot(config *envoyConfiguration) ca
 
 	vmatch, cmatch := config.equals(c.previousConfig)
 
-	timeout := time.Second * 5
 	virtualHosts := []route.VirtualHost{}
 	for _, virtualHost := range config.VirtualHosts {
-		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost.Host, timeout))
+		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost))
 	}
 	listener := makeListener(virtualHosts, c.cert, c.key)
 
