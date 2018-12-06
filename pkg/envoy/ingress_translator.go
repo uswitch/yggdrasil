@@ -59,7 +59,9 @@ type envoyConfiguration struct {
 }
 
 type virtualHost struct {
-	Host string
+	Host          string
+	Timeout       time.Duration
+	PerTryTimeout time.Duration
 }
 
 func (v *virtualHost) Equals(other *virtualHost) bool {
@@ -131,41 +133,73 @@ func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.I
 	return is
 }
 
+type envoyIngress struct {
+	vhost   *virtualHost
+	cluster *cluster
+}
+
+func newEnvoyIngress(host string) *envoyIngress {
+	return &envoyIngress{
+		vhost: &virtualHost{
+			Host:          host,
+			Timeout:       (15 * time.Second),
+			PerTryTimeout: (5 * time.Second),
+		},
+		cluster: &cluster{
+			Name:            host,
+			Hosts:           []string{},
+			Timeout:         (30 * time.Second),
+			HealthCheckPath: "",
+		},
+	}
+}
+
+func (ing *envoyIngress) addUpstream(host string) {
+	ing.cluster.Hosts = append(ing.cluster.Hosts, host)
+}
+
+func (ing *envoyIngress) addHealthCheckPath(path string) {
+	ing.cluster.HealthCheckPath = path
+}
+
+func (ing *envoyIngress) addTimeout(timeout time.Duration) {
+	ing.cluster.Timeout = timeout
+	ing.vhost.Timeout = timeout
+	ing.vhost.PerTryTimeout = timeout
+}
+
 func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
-	ingressToStatusHosts := map[string][]string{}
-	ingressHealthChecks := map[string]string{}
-	ingressTimeouts := map[string]time.Duration{}
+	envoyIngresses := map[string]*envoyIngress{}
 
 	for _, i := range ingresses {
 		for _, j := range i.Status.LoadBalancer.Ingress {
 			for _, rule := range i.Spec.Rules {
-				ingressToStatusHosts[rule.Host] = append(ingressToStatusHosts[rule.Host], j.Hostname)
-				ingressTimeouts[rule.Host] = time.Second * 30
+				_, ok := envoyIngresses[rule.Host]
+				if !ok {
+					envoyIngresses[rule.Host] = newEnvoyIngress(rule.Host)
+				}
+
+				envoyIngress := envoyIngresses[rule.Host]
+				envoyIngress.addUpstream(j.Hostname)
 
 				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
-					ingressHealthChecks[rule.Host] = i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"]
-				} else {
-					ingressHealthChecks[rule.Host] = ""
+					envoyIngress.addHealthCheckPath(i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"])
 				}
 
 				if i.GetAnnotations()["yggdrasil.uswitch.com/timeout"] != "" {
 					timeout, err := time.ParseDuration(i.GetAnnotations()["yggdrasil.uswitch.com/timeout"])
 					if err == nil {
-						ingressTimeouts[rule.Host] = timeout
+						envoyIngress.addTimeout(timeout)
 					}
 				}
 			}
 		}
 	}
 
-	for ingress, hosts := range ingressToStatusHosts {
-		cfg.Clusters = append(cfg.Clusters, &cluster{
-			Name:            ingress,
-			Hosts:           hosts,
-			HealthCheckPath: ingressHealthChecks[ingress],
-			Timeout:         ingressTimeouts[ingress]})
-		cfg.VirtualHosts = append(cfg.VirtualHosts, &virtualHost{Host: ingress})
+	for _, ingress := range envoyIngresses {
+		cfg.Clusters = append(cfg.Clusters, ingress.cluster)
+		cfg.VirtualHosts = append(cfg.VirtualHosts, ingress.vhost)
 	}
 
 	numVhosts.Set(float64(len(cfg.VirtualHosts)))
