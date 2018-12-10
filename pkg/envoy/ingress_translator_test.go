@@ -2,6 +2,7 @@ package envoy
 
 import (
 	"testing"
+	"time"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -19,6 +20,16 @@ func TestVirtualHostEquality(t *testing.T) {
 	c := &virtualHost{Host: ""}
 	if a.Equals(c) {
 		t.Error()
+	}
+
+	d := &virtualHost{Host: "foo", Timeout: (5 * time.Second)}
+	if a.Equals(d) {
+		t.Error("virtual hosts with different timeout values should not be equal")
+	}
+
+	e := &virtualHost{Host: "foo", PerTryTimeout: (5 * time.Second)}
+	if a.Equals(e) {
+		t.Error("virtual hosts with different per try timeout values should not be equal")
 	}
 }
 
@@ -48,6 +59,11 @@ func TestClusterEquality(t *testing.T) {
 	f := &cluster{Name: "foo"}
 	if a.Equals(f) {
 		t.Error("no hosts set")
+	}
+
+	g := &cluster{Name: "foo", Hosts: []string{"host1", "host2"}, Timeout: (5 * time.Second)}
+	if a.Equals(g) {
+		t.Error("clusters with different timeout values should not be equal")
 	}
 }
 
