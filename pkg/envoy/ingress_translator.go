@@ -69,7 +69,9 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 		return false
 	}
 
-	return v.Host == other.Host
+	return v.Host == other.Host &&
+		v.Timeout == other.Timeout &&
+		v.PerTryTimeout == other.PerTryTimeout
 }
 
 type cluster struct {
@@ -89,6 +91,10 @@ func (c *cluster) Equals(other *cluster) bool {
 	}
 
 	if c.Name != other.Name {
+		return false
+	}
+
+	if c.Timeout != other.Timeout {
 		return false
 	}
 
