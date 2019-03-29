@@ -23,8 +23,9 @@ type Certificate struct {
 type KubernetesConfigurator struct {
 	ingressClasses []string
 	nodeID         string
-	certificates    []Certificate
+	certificates   []Certificate
 	trustCA        string
+	upstreamPort   uint32
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -33,8 +34,9 @@ type KubernetesConfigurator struct {
 }
 
 //NewKubernetesConfigurator returns a Kubernetes configurator given a lister and ingress class
-func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca string, ingressClasses []string) *KubernetesConfigurator {
-	return &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificates: certificates, trustCA: ca}
+func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca string, upstreamPort uint32, ingressClasses []string) *KubernetesConfigurator {
+	return &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificates: certificates, trustCA: ca, upstreamPort: upstreamPort}
+
 }
 
 //Generate creates a new snapshot
@@ -95,10 +97,11 @@ func (c *KubernetesConfigurator) matchCertificateIndices(virtualHost *virtualHos
 
 	for idx, certificate := range c.certificates {
 		for _, host := range certificate.Hosts {
-			if (host == "*" || compareHosts(host, virtualHost.Host)) {  // star matches everything unlike *.thing.com which only matches one level
+			if host == "*" || compareHosts(host, virtualHost.Host) { // star matches everything unlike *.thing.com which only matches one level
 				matchedIndicies = append(matchedIndicies, idx)
 			}
 		}
+
 	}
 
 	if len(matchedIndicies) > 0 {
@@ -145,7 +148,7 @@ func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []
 	clusters := []cache.Resource{}
 
 	for _, cluster := range config.Clusters {
-		addresses := makeAddresses(cluster.Hosts)
+		addresses := makeAddresses(cluster.Hosts, c.upstreamPort)
 		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, cluster.Timeout, addresses)
 		clusters = append(clusters, cluster)
 	}

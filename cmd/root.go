@@ -35,7 +35,8 @@ type config struct {
 	NodeName     string              `json:"nodeName"`
 	Clusters     []clusterConfig     `json:"clusters"`
 	Certificates []envoy.Certificate `json:"certificates"`
-	TrustCA      string          `json:"trustCA"`
+	TrustCA      string              `json:"trustCA"`
+	UpstreamPort uint32              `json:"upstreamPort"`
 }
 
 // Hasher returns node ID as an ID
@@ -71,12 +72,14 @@ func init() {
 	rootCmd.PersistentFlags().StringSlice("ingress-classes", nil, "Ingress classes to watch")
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
+	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
 	viper.BindPFlag("ingressClasses", rootCmd.PersistentFlags().Lookup("ingress-classes"))
 	viper.BindPFlag("cert", rootCmd.PersistentFlags().Lookup("cert"))
 	viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
 	viper.BindPFlag("trustCA", rootCmd.PersistentFlags().Lookup("ca"))
+	viper.BindPFlag("upstreamPort", rootCmd.PersistentFlags().Lookup("upstream-port"))
 }
 
 func initConfig() {
@@ -126,7 +129,7 @@ func main(*cobra.Command, []string) error {
 
 	if len(c.Certificates) == 0 {
 		c.Certificates = []envoy.Certificate{
-			{ Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key"), },
+			{Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key")},
 		}
 	}
 
@@ -154,6 +157,8 @@ func main(*cobra.Command, []string) error {
 		viper.GetString("nodeName"),
 		c.Certificates,
 		viper.GetString("trustCA"),
+		uint32(viper.GetInt32("upstreamPort")),
+
 		viper.GetStringSlice("ingressClasses"))
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 	go snapshotter.Run(ctx)

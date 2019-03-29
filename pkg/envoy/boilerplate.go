@@ -186,7 +186,7 @@ func makeListener(filterChains []listener.FilterChain) *v2.Listener {
 	return &listener
 }
 
-func makeAddresses(addresses []string) []*core.Address {
+func makeAddresses(addresses []string, upstreamPort uint32) []*core.Address {
 
 	envoyAddresses := []*core.Address{}
 	for _, address := range addresses {
@@ -195,7 +195,7 @@ func makeAddresses(addresses []string) []*core.Address {
 				SocketAddress: &core.SocketAddress{
 					Address: address,
 					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: 443,
+						PortValue: upstreamPort,
 					},
 				},
 			},

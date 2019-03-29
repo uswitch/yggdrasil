@@ -64,8 +64,8 @@ func TestGenerate(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*"}, Cert: "b", Key: "c", },
-	}, "d", []string{"bar"})
+		{Hosts: []string{"*"}, Cert: "b", Key: "c"},
+	}, "d", 443, []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
 
@@ -84,9 +84,9 @@ func TestGenerateMultipleCerts(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com", },
-		{ Hosts: []string{"*.internal.api.co.uk"}, Cert: "couk", Key: "couk", },
-	}, "d", []string{"bar"})
+		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
+		{Hosts: []string{"*.internal.api.co.uk"}, Cert: "couk", Key: "couk"},
+	}, "d", 443, []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
 	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
@@ -106,8 +106,8 @@ func TestGenerateMultipleHosts(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*.internal.api.com", "*.internal.api.co.uk"}, Cert: "com", Key: "com", },
-	}, "d", []string{"bar"})
+		{Hosts: []string{"*.internal.api.com", "*.internal.api.co.uk"}, Cert: "com", Key: "com"},
+	}, "d", 443, []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
 	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
@@ -127,8 +127,8 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com", },
-	}, "d", []string{"bar"})
+		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
+	}, "d", 443, []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
 	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
@@ -144,9 +144,9 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com", },
-		{ Hosts: []string{"*"}, Cert: "all", Key: "all", },
-	}, "d", []string{"bar"})
+		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
+		{Hosts: []string{"*"}, Cert: "all", Key: "all"},
+	}, "d", 443, []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
 	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
