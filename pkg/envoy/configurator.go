@@ -21,11 +21,12 @@ type Certificate struct {
 
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
-	ingressClasses []string
-	nodeID         string
-	certificates   []Certificate
-	trustCA        string
-	upstreamPort   uint32
+	ingressClasses  []string
+	nodeID          string
+	certificates    []Certificate
+	trustCA         string
+	upstreamPort    uint32
+	envoyListenPort uint32
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -34,9 +35,9 @@ type KubernetesConfigurator struct {
 }
 
 //NewKubernetesConfigurator returns a Kubernetes configurator given a lister and ingress class
-func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca string, upstreamPort uint32, ingressClasses []string) *KubernetesConfigurator {
-	return &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificates: certificates, trustCA: ca, upstreamPort: upstreamPort}
 
+func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca string, upstreamPort uint32, envoyListenPort uint32, ingressClasses []string) *KubernetesConfigurator {
+	return &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificates: certificates, trustCA: ca, upstreamPort: upstreamPort, envoyListenPort: envoyListenPort}
 }
 
 //Generate creates a new snapshot
@@ -141,7 +142,7 @@ func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) [
 		filterChains = append(filterChains, filterChain)
 	}
 
-	return []cache.Resource{makeListener(filterChains)}
+	return []cache.Resource{makeListener(filterChains, c.envoyListenPort)}
 }
 
 func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []cache.Resource {

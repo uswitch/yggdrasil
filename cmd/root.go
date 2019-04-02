@@ -74,6 +74,7 @@ func init() {
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
 	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
+	rootCmd.PersistentFlags().Uint32("envoy-port", 443, "port by the envoy proxy to accept incoming connections")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
@@ -82,6 +83,7 @@ func init() {
 	viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
 	viper.BindPFlag("trustCA", rootCmd.PersistentFlags().Lookup("ca"))
 	viper.BindPFlag("upstreamPort", rootCmd.PersistentFlags().Lookup("upstream-port"))
+	viper.BindPFlag("envoyPort", rootCmd.PersistentFlags().Lookup("envoy-port"))
 
 }
 
@@ -161,9 +163,10 @@ func main(*cobra.Command, []string) error {
 		c.Certificates,
 		viper.GetString("trustCA"),
 		uint32(viper.GetInt32("upstreamPort")),
-
+		uint32(viper.GetInt32("envoyPort")),
 		viper.GetStringSlice("ingressClasses"))
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
+
 	go snapshotter.Run(ctx)
 	lister.Run(ctx)
 
