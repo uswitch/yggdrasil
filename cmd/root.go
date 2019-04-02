@@ -65,6 +65,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
+	rootCmd.PersistentFlags().String("address", "0.0.0.0:8080", "yggdrasil listen address")
 	rootCmd.PersistentFlags().String("node-name", "", "envoy node name")
 	rootCmd.PersistentFlags().String("cert", "", "certfile")
 	rootCmd.PersistentFlags().String("key", "", "keyfile")
@@ -74,12 +75,14 @@ func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
 	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
 	viper.BindPFlag("ingressClasses", rootCmd.PersistentFlags().Lookup("ingress-classes"))
 	viper.BindPFlag("cert", rootCmd.PersistentFlags().Lookup("cert"))
 	viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
 	viper.BindPFlag("trustCA", rootCmd.PersistentFlags().Lookup("ca"))
 	viper.BindPFlag("upstreamPort", rootCmd.PersistentFlags().Lookup("upstream-port"))
+
 }
 
 func initConfig() {
@@ -165,7 +168,7 @@ func main(*cobra.Command, []string) error {
 	lister.Run(ctx)
 
 	envoyServer := server.NewServer(envoyCache, &callbacks{})
-	go runEnvoyServer(envoyServer, ctx.Done())
+	go runEnvoyServer(envoyServer, viper.GetString("address"), ctx.Done())
 
 	<-stopCh
 	return nil
