@@ -65,7 +65,8 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
-	rootCmd.PersistentFlags().String("address", "0.0.0.0:8080", "yggdrasil listen address")
+	rootCmd.PersistentFlags().String("address", "0.0.0.0:8080", "yggdrasil envoy control plane listen address")
+	rootCmd.PersistentFlags().String("health-address", "0.0.0.0:8081", "yggdrasil health API listen address")
 	rootCmd.PersistentFlags().String("node-name", "", "envoy node name")
 	rootCmd.PersistentFlags().String("cert", "", "certfile")
 	rootCmd.PersistentFlags().String("key", "", "keyfile")
@@ -77,6 +78,7 @@ func init() {
 	rootCmd.PersistentFlags().Uint32("envoy-port", 443, "port by the envoy proxy to accept incoming connections")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
+	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
 	viper.BindPFlag("ingressClasses", rootCmd.PersistentFlags().Lookup("ingress-classes"))
 	viper.BindPFlag("cert", rootCmd.PersistentFlags().Lookup("cert"))
@@ -171,7 +173,7 @@ func main(*cobra.Command, []string) error {
 	lister.Run(ctx)
 
 	envoyServer := server.NewServer(envoyCache, &callbacks{})
-	go runEnvoyServer(envoyServer, viper.GetString("address"), ctx.Done())
+	go runEnvoyServer(envoyServer, viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
 
 	<-stopCh
 	return nil

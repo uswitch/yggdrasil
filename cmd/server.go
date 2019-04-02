@@ -34,7 +34,7 @@ func (c *callbacks) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse)
 	c.fetchResp++
 }
 
-func runEnvoyServer(envoyServer server.Server, address string, stopCh <-chan struct{}) {
+func runEnvoyServer(envoyServer server.Server, address string, healthAddress string, stopCh <-chan struct{}) {
 
 	grpcServer := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
@@ -55,7 +55,7 @@ func runEnvoyServer(envoyServer server.Server, address string, stopCh <-chan str
 	healthMux := http.NewServeMux()
 
 	healthServer := &http.Server{
-		Addr:    fmt.Sprintf(":8081"),
+		Addr:    fmt.Sprintf(healthAddress),
 		Handler: healthMux,
 	}
 
