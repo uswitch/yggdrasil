@@ -2,6 +2,7 @@ package envoy
 
 import (
 	"sort"
+	"strings"
 	"time"
 
 	"k8s.io/api/extensions/v1beta1"
@@ -152,7 +153,7 @@ func newEnvoyIngress(host string) *envoyIngress {
 			PerTryTimeout: (5 * time.Second),
 		},
 		cluster: &cluster{
-			Name:            host,
+			Name:            strings.ReplaceAll(host, ".", "_"),
 			Hosts:           []string{},
 			Timeout:         (30 * time.Second),
 			HealthCheckPath: "",
