@@ -5,11 +5,14 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/api/extensions/v1beta1"
+
+	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
 //Configurator is an interface that implements Generate and NodeID
 type Configurator interface {
-	Generate() (cache.Snapshot, error)
+	Generate([]v1beta1.Ingress) cache.Snapshot
 	NodeID() string
 }
 
@@ -18,19 +21,21 @@ type Configurator interface {
 type Snapshotter struct {
 	snapshotCache cache.SnapshotCache
 	configurator  Configurator
-	events        chan interface{}
+	lister        *k8s.IngressAggregator
 }
 
 //NewSnapshotter returns a new Snapshotter
-func NewSnapshotter(snapshotCache cache.SnapshotCache, config Configurator, events chan interface{}) *Snapshotter {
-	return &Snapshotter{snapshotCache: snapshotCache, configurator: config, events: events}
+func NewSnapshotter(snapshotCache cache.SnapshotCache, config Configurator, lister *k8s.IngressAggregator) *Snapshotter {
+	return &Snapshotter{snapshotCache: snapshotCache, configurator: config, lister: lister}
 }
 
 func (s *Snapshotter) snapshot() error {
-	snapshot, err := s.configurator.Generate()
+	ingresses, err := s.lister.List()
 	if err != nil {
 		return err
 	}
+
+	snapshot := s.configurator.Generate(ingresses)
 
 	log.Debugf("took snapshot: %+v", snapshot)
 
@@ -43,7 +48,7 @@ func (s *Snapshotter) Run(ctx context.Context) {
 	go func() {
 		for {
 			select {
-			case <-s.events:
+			case <-s.lister.Events():
 				s.snapshot()
 			case <-ctx.Done():
 				return

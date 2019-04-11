@@ -126,13 +126,12 @@ func main(*cobra.Command, []string) error {
 
 	lister := k8s.NewIngressAggregator(sources)
 	configurator := envoy.NewKubernetesConfigurator(
-		lister,
 		viper.GetString("nodeName"),
 		viper.GetString("cert"),
 		viper.GetString("key"),
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"))
-	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister.Events())
+	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 	go snapshotter.Run(ctx)
 	lister.Run(ctx)
 

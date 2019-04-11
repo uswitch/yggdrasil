@@ -6,12 +6,11 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	"github.com/uswitch/yggdrasil/pkg/k8s"
+	"k8s.io/api/extensions/v1beta1"
 )
 
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
-	lister         k8s.IngressLister
 	ingressClasses []string
 	nodeID         string
 	cert           string
@@ -25,20 +24,14 @@ type KubernetesConfigurator struct {
 }
 
 //NewKubernetesConfigurator returns a Kubernetes configurator given a lister and ingress class
-func NewKubernetesConfigurator(lister k8s.IngressLister, nodeID, cert, key, ca string, ingressClasses []string) *KubernetesConfigurator {
-	return &KubernetesConfigurator{lister: lister, ingressClasses: ingressClasses, nodeID: nodeID, cert: cert, key: key, trustCA: ca}
+func NewKubernetesConfigurator(nodeID, cert, key, ca string, ingressClasses []string) *KubernetesConfigurator {
+	return &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, cert: cert, key: key, trustCA: ca}
 }
 
 //Generate creates a new snapshot
-func (c *KubernetesConfigurator) Generate() (cache.Snapshot, error) {
-	ingresses, err := c.lister.List()
-
-	if err != nil {
-		return cache.Snapshot{}, err
-	}
-
+func (c *KubernetesConfigurator) Generate(ingresses []v1beta1.Ingress) cache.Snapshot {
 	config := translateIngresses(classFilter(ingresses, c.ingressClasses))
-	return c.generateSnapshot(config), nil
+	return c.generateSnapshot(config)
 }
 
 //NodeID returns the NodeID
