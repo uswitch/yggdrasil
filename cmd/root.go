@@ -31,11 +31,10 @@ type clusterConfig struct {
 }
 
 type config struct {
-	IngressClass string          `json:"ingressClass"`
-	NodeName     string          `json:"nodeName"`
-	Clusters     []clusterConfig `json:"clusters"`
-	Cert         string          `json:"cert"`
-	Key          string          `json:"key"`
+	IngressClass string              `json:"ingressClass"`
+	NodeName     string              `json:"nodeName"`
+	Clusters     []clusterConfig     `json:"clusters"`
+	Certificates []envoy.Certificate `json:"certificates"`
 	TrustCA      string          `json:"trustCA"`
 }
 
@@ -125,11 +124,16 @@ func main(*cobra.Command, []string) error {
 	hash := Hasher{}
 	envoyCache := cache.NewSnapshotCache(false, hash, nil)
 
+	if len(c.Certificates) == 0 {
+		c.Certificates = []envoy.Certificate{
+			{ Cert: viper.GetString("cert"), Key: viper.GetString("key") },
+		}
+	}
+
 	lister := k8s.NewIngressAggregator(sources)
 	configurator := envoy.NewKubernetesConfigurator(
 		viper.GetString("nodeName"),
-		viper.GetString("cert"),
-		viper.GetString("key"),
+		c.Certificates[0],
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"))
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)

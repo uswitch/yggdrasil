@@ -11,7 +11,7 @@ func TestGenerate(t *testing.T) {
 		newIngress("wibble", "bibble"),
 	}
 
-	configurator := NewKubernetesConfigurator("a", "b", "c", "d", []string{"e"})
+	configurator := NewKubernetesConfigurator("a", Certificate{Cert: "b", Key: "c"}, "d", []string{"e"})
 
 	snapshot := configurator.Generate(ingresses)
 

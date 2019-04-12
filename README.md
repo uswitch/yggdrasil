@@ -55,8 +55,13 @@ Yggdrasil can be configured using a config file e.g:
 {
   "nodeName": "foo",
   "ingressClasses": ["multi-cluster", "multi-cluster-staging"],
-  "cert": "path/to/cert",
-  "key": "path/to/key",
+  "certificates": [
+    {
+      "hosts": ["*.api.com"],
+      "cert": "path/to/cert",
+      "key": "path/to/key"
+    }
+  ],
   "clusters": [
     {
       "token": "xxxxxxxxxxxxxxxx",

@@ -9,12 +9,17 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 )
 
+type Certificate struct {
+	Hosts []string `json:"hosts"`
+	Cert  string   `json:"cert"`
+	Key   string   `json:"key"`
+}
+
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
 	ingressClasses []string
 	nodeID         string
-	cert           string
-	key            string
+	certificate    Certificate
 	trustCA        string
 
 	previousConfig  *envoyConfiguration
@@ -24,8 +29,8 @@ type KubernetesConfigurator struct {
 }
 
 //NewKubernetesConfigurator returns a Kubernetes configurator given a lister and ingress class
-func NewKubernetesConfigurator(nodeID, cert, key, ca string, ingressClasses []string) *KubernetesConfigurator {
-	return &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, cert: cert, key: key, trustCA: ca}
+func NewKubernetesConfigurator(nodeID string, certificate Certificate, ca string, ingressClasses []string) *KubernetesConfigurator {
+	return &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificate: certificate, trustCA: ca}
 }
 
 //Generate creates a new snapshot
@@ -49,7 +54,7 @@ func (c *KubernetesConfigurator) generateSnapshot(config *envoyConfiguration) ca
 	for _, virtualHost := range config.VirtualHosts {
 		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost))
 	}
-	listener := makeListener(virtualHosts, c.cert, c.key)
+	listener := makeListener(virtualHosts, c.certificate.Cert, c.certificate.Key)
 
 	clusterItems := []cache.Resource{}
 	for _, cluster := range config.Clusters {
