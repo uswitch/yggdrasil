@@ -126,14 +126,14 @@ func main(*cobra.Command, []string) error {
 
 	if len(c.Certificates) == 0 {
 		c.Certificates = []envoy.Certificate{
-			{ Cert: viper.GetString("cert"), Key: viper.GetString("key") },
+			{ Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key"), },
 		}
 	}
 
 	lister := k8s.NewIngressAggregator(sources)
 	configurator := envoy.NewKubernetesConfigurator(
 		viper.GetString("nodeName"),
-		c.Certificates[0],
+		c.Certificates,
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"))
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
