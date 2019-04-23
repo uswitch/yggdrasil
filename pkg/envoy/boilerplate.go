@@ -9,6 +9,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	fal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
@@ -233,11 +234,24 @@ func makeCluster(host, ca, healthPath string, timeout time.Duration, addresses [
 	}
 	healthChecks := makeHealthChecks(healthPath)
 
+	endpoints := make([]endpoint.LbEndpoint, len(addresses))
+
+	for idx, address := range addresses {
+		endpoints[idx] = endpoint.LbEndpoint{
+			Endpoint: &endpoint.Endpoint{ Address: address },
+		}
+	}
+
 	cluster := &v2.Cluster{
 		Type:           v2.Cluster_STRICT_DNS,
 		Name:           host,
 		ConnectTimeout: timeout,
-		Hosts:          addresses,
+		LoadAssignment: &v2.ClusterLoadAssignment{
+			ClusterName: host,
+			Endpoints: []endpoint.LocalityLbEndpoints{
+				{ LbEndpoints: endpoints, },
+			},
+		},
 		TlsContext:     tls,
 		HealthChecks:   healthChecks,
 	}
