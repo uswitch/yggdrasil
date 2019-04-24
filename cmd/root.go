@@ -130,6 +130,25 @@ func main(*cobra.Command, []string) error {
 		}
 	}
 
+	// load the certificates from the file system
+	for idx, certificate := range c.Certificates {
+		certPath := certificate.Cert
+		keyPath := certificate.Key
+
+		certBytes, err := ioutil.ReadFile(certPath)
+		if err != nil {
+			panic(err)
+		}
+
+		keyBytes, err := ioutil.ReadFile(keyPath)
+		if err != nil {
+			panic(err)
+		}
+
+		c.Certificates[idx].Cert = string(certBytes)
+		c.Certificates[idx].Key = string(keyBytes)
+	}
+
 	lister := k8s.NewIngressAggregator(sources)
 	configurator := envoy.NewKubernetesConfigurator(
 		viper.GetString("nodeName"),

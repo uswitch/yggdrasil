@@ -127,10 +127,10 @@ func makeFilterChain(certificate Certificate, virtualHosts []route.VirtualHost) 
 		TlsCertificates: []*auth.TlsCertificate{
 			&auth.TlsCertificate{
 				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{Filename: certificate.Cert},
+					Specifier: &core.DataSource_InlineString{InlineString: certificate.Cert},
 				},
 				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{Filename: certificate.Key},
+					Specifier: &core.DataSource_InlineString{InlineString: certificate.Key},
 				},
 			},
 		},

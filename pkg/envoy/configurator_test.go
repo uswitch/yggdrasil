@@ -31,15 +31,15 @@ func assertNumberOfVirtualHosts(t *testing.T, filterChain listener.FilterChain, 
 func assertTlsCertificate(t *testing.T, filterChain listener.FilterChain, expectedCert, expectedKey string) {
 	certificate := filterChain.TlsContext.CommonTlsContext.TlsCertificates[0]
 
-	certFile := certificate.CertificateChain.Specifier.(*core.DataSource_Filename)
-	keyFile := certificate.PrivateKey.Specifier.(*core.DataSource_Filename)
+	certFile := certificate.CertificateChain.Specifier.(*core.DataSource_InlineString)
+	keyFile := certificate.PrivateKey.Specifier.(*core.DataSource_InlineString)
 
-	if certFile.Filename != expectedCert {
-		t.Fatalf("certficiate chain filename: '%s' expected '%s'", certFile.Filename, expectedCert)
+	if certFile.InlineString != expectedCert {
+		t.Fatalf("certficiate chain filename: '%s' expected '%s'", certFile.InlineString, expectedCert)
 	}
 
-	if keyFile.Filename != expectedKey {
-		t.Fatalf("private key filename: '%s' expected '%s'", keyFile.Filename, expectedKey)
+	if keyFile.InlineString != expectedKey {
+		t.Fatalf("private key filename: '%s' expected '%s'", keyFile.InlineString, expectedKey)
 	}
 }
 
