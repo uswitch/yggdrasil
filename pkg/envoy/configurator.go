@@ -133,7 +133,7 @@ func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) [
 
 		filterChain, err := makeFilterChain(certificate, virtualHosts)
 		if err != nil {
-			log.Println("ASDSDGERHAERHAERH", err)
+			log.Printf("Error making filter chain: %v", err)
 		}
 
 		filterChains = append(filterChains, filterChain)

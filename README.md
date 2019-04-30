@@ -76,8 +76,11 @@ Yggdrasil can be configured using a config file e.g:
   ]
 }
 ```
+
+The list of certificates will be loaded by Yggdrasil and served to the Envoy nodes by inlining the key pairs. These will then be used to
+group the ingress into different filter chains, split using hosts.
+
 `nodeName` is the same `node-name` that you start your envoy nodes with.
-The cert and key are used to talk over https with the ingress loadbalancers.
 The `ingressClasses` is a list of ingress classes that yggdrasil will watch for.
 Each cluster represents a different Kubernetes cluster with the token being a service account token for that cluster. `ca` is the Path to the ca certificate for that cluster.
 

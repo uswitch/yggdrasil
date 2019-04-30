@@ -137,12 +137,12 @@ func main(*cobra.Command, []string) error {
 
 		certBytes, err := ioutil.ReadFile(certPath)
 		if err != nil {
-			panic(err)
+			log.Fatalf("Failed to read %s: %v", certPath, err)
 		}
 
 		keyBytes, err := ioutil.ReadFile(keyPath)
 		if err != nil {
-			panic(err)
+			log.Fatalf("Failed to read %s: %v", keyPath, err)
 		}
 
 		c.Certificates[idx].Cert = string(certBytes)
