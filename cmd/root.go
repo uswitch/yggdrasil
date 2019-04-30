@@ -31,11 +31,10 @@ type clusterConfig struct {
 }
 
 type config struct {
-	IngressClass string          `json:"ingressClass"`
-	NodeName     string          `json:"nodeName"`
-	Clusters     []clusterConfig `json:"clusters"`
-	Cert         string          `json:"cert"`
-	Key          string          `json:"key"`
+	IngressClass string              `json:"ingressClass"`
+	NodeName     string              `json:"nodeName"`
+	Clusters     []clusterConfig     `json:"clusters"`
+	Certificates []envoy.Certificate `json:"certificates"`
 	TrustCA      string          `json:"trustCA"`
 }
 
@@ -45,7 +44,6 @@ type Hasher struct {
 
 var (
 	cfgFile    string
-	sources    []k8scache.ListerWatcher
 	kubeConfig []string
 )
 
@@ -105,7 +103,7 @@ func main(*cobra.Command, []string) error {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	err = createSources(c.Clusters)
+	clusterSources, err := createSources(c.Clusters)
 	if err != nil {
 		return fmt.Errorf("error creating sources: %s", err)
 	}
@@ -113,10 +111,12 @@ func main(*cobra.Command, []string) error {
 	stopCh := make(chan os.Signal, 1)
 	signal.Notify(stopCh, os.Interrupt, syscall.SIGTERM)
 
-	err = configFromKubeConfig(kubeConfig)
+	configSources, err := configFromKubeConfig(kubeConfig)
 	if err != nil {
 		return fmt.Errorf("error parsing kube config: %s", err)
 	}
+
+	sources := append(clusterSources, configSources...)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -124,15 +124,38 @@ func main(*cobra.Command, []string) error {
 	hash := Hasher{}
 	envoyCache := cache.NewSnapshotCache(false, hash, nil)
 
+	if len(c.Certificates) == 0 {
+		c.Certificates = []envoy.Certificate{
+			{ Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key"), },
+		}
+	}
+
+	// load the certificates from the file system
+	for idx, certificate := range c.Certificates {
+		certPath := certificate.Cert
+		keyPath := certificate.Key
+
+		certBytes, err := ioutil.ReadFile(certPath)
+		if err != nil {
+			log.Fatalf("Failed to read %s: %v", certPath, err)
+		}
+
+		keyBytes, err := ioutil.ReadFile(keyPath)
+		if err != nil {
+			log.Fatalf("Failed to read %s: %v", keyPath, err)
+		}
+
+		c.Certificates[idx].Cert = string(certBytes)
+		c.Certificates[idx].Key = string(keyBytes)
+	}
+
 	lister := k8s.NewIngressAggregator(sources)
 	configurator := envoy.NewKubernetesConfigurator(
-		lister,
 		viper.GetString("nodeName"),
-		viper.GetString("cert"),
-		viper.GetString("key"),
+		c.Certificates,
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"))
-	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister.Events())
+	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 	go snapshotter.Run(ctx)
 	lister.Run(ctx)
 
@@ -150,7 +173,9 @@ func createClientConfig(path string) (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags("", path)
 }
 
-func createSources(clusters []clusterConfig) error {
+func createSources(clusters []clusterConfig) ([]k8scache.ListerWatcher, error) {
+	sources := []k8scache.ListerWatcher{}
+
 	for _, cluster := range clusters {
 
 		var token string
@@ -158,7 +183,7 @@ func createSources(clusters []clusterConfig) error {
 		if cluster.TokenPath != "" {
 			bytes, err := ioutil.ReadFile(cluster.TokenPath)
 			if err != nil {
-				return err
+				return sources, err
 			}
 			token = string(bytes)
 		} else {
@@ -174,26 +199,30 @@ func createSources(clusters []clusterConfig) error {
 		}
 		clientSet, err := kubernetes.NewForConfig(config)
 		if err != nil {
-			return err
+			return sources, err
 		}
 		sources = append(sources, k8s.NewListWatch(clientSet))
 	}
-	return nil
+
+	return sources, nil
 }
 
-func configFromKubeConfig(paths []string) error {
+func configFromKubeConfig(paths []string) ([]k8scache.ListerWatcher, error) {
+	sources := []k8scache.ListerWatcher{}
+
 	for _, configPath := range paths {
 		config, err := createClientConfig(configPath)
 		if err != nil {
-			return err
+			return sources, err
 		}
 		clientSet, err := kubernetes.NewForConfig(config)
 		if err != nil {
-			return err
+			return sources, err
 		}
 		sources = append(sources, k8s.NewListWatch(clientSet))
 	}
-	return nil
+
+	return sources, nil
 }
 
 // ID function

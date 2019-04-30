@@ -2,18 +2,19 @@ package envoy
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	fal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	al "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 )
@@ -114,30 +115,42 @@ func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnection
 	}
 }
 
-func makeListener(virtualHosts []route.VirtualHost, cert, key string) []cache.Resource {
+func makeFilterChain(certificate Certificate, virtualHosts []route.VirtualHost) (listener.FilterChain, error) {
 	httpConnectionManager := makeConnectionManager(virtualHosts)
 	httpConfig, err := util.MessageToStruct(httpConnectionManager)
 	if err != nil {
-		log.Fatalf("failed to convert: %s", err)
+		return listener.FilterChain{}, fmt.Errorf("failed to convert: %s", err)
 	}
 
 	tls := &auth.DownstreamTlsContext{}
-	if cert != "" && key != "" {
-		tls.CommonTlsContext = &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				&auth.TlsCertificate{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{Filename: cert},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{Filename: key},
-					},
+	tls.CommonTlsContext = &auth.CommonTlsContext{
+		TlsCertificates: []*auth.TlsCertificate{
+			&auth.TlsCertificate{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_InlineString{InlineString: certificate.Cert},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_InlineString{InlineString: certificate.Key},
 				},
 			},
-		}
-	} else {
-		tls = nil
+		},
 	}
+
+	return listener.FilterChain{
+		TlsContext: tls,
+		FilterChainMatch: &listener.FilterChainMatch{
+			ServerNames: certificate.Hosts,
+		},
+		Filters: []listener.Filter{
+			listener.Filter{
+				Name:   "envoy.http_connection_manager",
+				Config: httpConfig,
+			},
+		},
+	}, nil
+}
+
+func makeListener(filterChains []listener.FilterChain) *v2.Listener {
 
 	listener := v2.Listener{
 		Name: "listener_0",
@@ -151,16 +164,13 @@ func makeListener(virtualHosts []route.VirtualHost, cert, key string) []cache.Re
 				},
 			},
 		},
-		FilterChains: []listener.FilterChain{listener.FilterChain{
-			TlsContext: tls,
-			Filters: []listener.Filter{listener.Filter{
-				Name:   "envoy.http_connection_manager",
-				Config: httpConfig,
-			}},
-		}},
+		ListenerFilters: []listener.ListenerFilter{
+			{ Name: "envoy.listener.tls_inspector" },
+		},
+		FilterChains: filterChains,
 	}
 
-	return []cache.Resource{&listener}
+	return &listener
 }
 
 func makeAddresses(addresses []string) []*core.Address {
@@ -224,11 +234,24 @@ func makeCluster(host, ca, healthPath string, timeout time.Duration, addresses [
 	}
 	healthChecks := makeHealthChecks(healthPath)
 
+	endpoints := make([]endpoint.LbEndpoint, len(addresses))
+
+	for idx, address := range addresses {
+		endpoints[idx] = endpoint.LbEndpoint{
+			Endpoint: &endpoint.Endpoint{ Address: address },
+		}
+	}
+
 	cluster := &v2.Cluster{
 		Type:           v2.Cluster_STRICT_DNS,
 		Name:           host,
 		ConnectTimeout: timeout,
-		Hosts:          addresses,
+		LoadAssignment: &v2.ClusterLoadAssignment{
+			ClusterName: host,
+			Endpoints: []endpoint.LocalityLbEndpoints{
+				{ LbEndpoints: endpoints, },
+			},
+		},
 		TlsContext:     tls,
 		HealthChecks:   healthChecks,
 	}

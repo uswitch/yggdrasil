@@ -1,21 +1,29 @@
 package envoy
 
 import (
+	"errors"
+	"log"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	"github.com/uswitch/yggdrasil/pkg/k8s"
+	"k8s.io/api/extensions/v1beta1"
 )
+
+type Certificate struct {
+	Hosts []string `json:"hosts"`
+	Cert  string   `json:"cert"`
+	Key   string   `json:"key"`
+}
 
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
-	lister         k8s.IngressLister
 	ingressClasses []string
 	nodeID         string
-	cert           string
-	key            string
+	certificates    []Certificate
 	trustCA        string
 
 	previousConfig  *envoyConfiguration
@@ -25,45 +33,21 @@ type KubernetesConfigurator struct {
 }
 
 //NewKubernetesConfigurator returns a Kubernetes configurator given a lister and ingress class
-func NewKubernetesConfigurator(lister k8s.IngressLister, nodeID, cert, key, ca string, ingressClasses []string) *KubernetesConfigurator {
-	return &KubernetesConfigurator{lister: lister, ingressClasses: ingressClasses, nodeID: nodeID, cert: cert, key: key, trustCA: ca}
+func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca string, ingressClasses []string) *KubernetesConfigurator {
+	return &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificates: certificates, trustCA: ca}
 }
 
 //Generate creates a new snapshot
-func (c *KubernetesConfigurator) Generate() (cache.Snapshot, error) {
-	ingresses, err := c.lister.List()
-
-	if err != nil {
-		return cache.Snapshot{}, err
-	}
-
-	config := translateIngresses(classFilter(ingresses, c.ingressClasses))
-	return c.generateSnapshot(config), nil
-}
-
-//NodeID returns the NodeID
-func (c *KubernetesConfigurator) NodeID() string {
-	return c.nodeID
-}
-
-func (c *KubernetesConfigurator) generateSnapshot(config *envoyConfiguration) cache.Snapshot {
+func (c *KubernetesConfigurator) Generate(ingresses []v1beta1.Ingress) cache.Snapshot {
 	c.Lock()
 	defer c.Unlock()
 
+	config := translateIngresses(classFilter(ingresses, c.ingressClasses))
+
 	vmatch, cmatch := config.equals(c.previousConfig)
 
-	virtualHosts := []route.VirtualHost{}
-	for _, virtualHost := range config.VirtualHosts {
-		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost))
-	}
-	listener := makeListener(virtualHosts, c.cert, c.key)
-
-	clusterItems := []cache.Resource{}
-	for _, cluster := range config.Clusters {
-		addresses := makeAddresses(cluster.Hosts)
-		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, cluster.Timeout, addresses)
-		clusterItems = append(clusterItems, cluster)
-	}
+	clusters := c.generateClusters(config)
+	listeners := c.generateListeners(config)
 
 	if !vmatch {
 		c.listenerVersion = time.Now().String()
@@ -75,10 +59,97 @@ func (c *KubernetesConfigurator) generateSnapshot(config *envoyConfiguration) ca
 		clusterUpdates.Inc()
 	}
 	c.previousConfig = config
-	clusters := cache.NewResources(c.clusterVersion, clusterItems)
-	listeners := cache.NewResources(c.listenerVersion, listener)
+
 	return cache.Snapshot{
-		Clusters:  clusters,
-		Listeners: listeners,
+		Clusters:  cache.NewResources(c.clusterVersion, []cache.Resource(clusters)),
+		Listeners: cache.NewResources(c.listenerVersion, []cache.Resource(listeners)),
 	}
+}
+
+//NodeID returns the NodeID
+func (c *KubernetesConfigurator) NodeID() string {
+	return c.nodeID
+
+}
+
+var errNoCertificateMatch = errors.New("No certificate match")
+
+func compareHosts(pattern, host string) bool {
+	patternParts := strings.Split(pattern, ".")
+	hostParts := strings.Split(host, ".")
+
+	if len(patternParts) == len(hostParts) {
+		for i, _ := range patternParts {
+			if patternParts[i] != "*" && patternParts[i] != hostParts[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	return false
+}
+
+func (c *KubernetesConfigurator) matchCertificateIndex(virtualHost *virtualHost) (int, error) {
+	matchedHostLength := 0
+	matchedHostIdx := 0
+
+	for idx, certificate := range c.certificates {
+		for _, host := range certificate.Hosts {
+			if (host == "*" || compareHosts(host, virtualHost.Host)) &&  // star matches everything unlike *.thing.com which only matches one level
+				len(host) > matchedHostLength {
+				matchedHostLength = len(host)
+				matchedHostIdx = idx
+			}
+		}
+	}
+
+	if matchedHostLength > 0 {
+		return matchedHostIdx, nil
+	}
+
+	return 0, errNoCertificateMatch
+}
+
+func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) []cache.Resource {
+	virtualHostsForCertificates := make([][]route.VirtualHost, len(c.certificates))
+
+	for _, virtualHost := range config.VirtualHosts {
+		certificateIndex, err := c.matchCertificateIndex(virtualHost)
+		if err != nil {
+			log.Printf("Error matching certificate for '%s': %v", virtualHost.Host, err)
+		} else {
+			virtualHostsForCertificates[certificateIndex] = append(virtualHostsForCertificates[certificateIndex], makeVirtualHost(virtualHost))
+		}
+	}
+
+	filterChains := []listener.FilterChain{}
+	for idx, certificate := range c.certificates {
+		virtualHosts := virtualHostsForCertificates[idx]
+
+		if len(virtualHosts) == 0 {
+			continue
+		}
+
+		filterChain, err := makeFilterChain(certificate, virtualHosts)
+		if err != nil {
+			log.Printf("Error making filter chain: %v", err)
+		}
+
+		filterChains = append(filterChains, filterChain)
+	}
+
+	return []cache.Resource{makeListener(filterChains)}
+}
+
+func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []cache.Resource {
+	clusters := []cache.Resource{}
+
+	for _, cluster := range config.Clusters {
+		addresses := makeAddresses(cluster.Hosts)
+		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, cluster.Timeout, addresses)
+		clusters = append(clusters, cluster)
+	}
+
+	return clusters
 }
