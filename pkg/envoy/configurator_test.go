@@ -123,22 +123,23 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 	}
 }
 
-func TestGenerateMatchesMostSpecific(t *testing.T) {
+func TestGenerateIntoTwoCerts(t *testing.T) {
 	ingresses := []v1beta1.Ingress{
 		newIngress("foo.internal.api.com", "bibble"),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*"}, Cert: "wild", Key: "wild", },
 		{ Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com", },
+		{ Hosts: []string{"*.internal.api.com"}, Cert: "all", Key: "all", },
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
 	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
 
-	if len(listener.FilterChains) != 1 {
-		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 1)
+	if len(listener.FilterChains) != 2 {
+		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 2)
 	}
 
-	assertTlsCertificate(t, listener.FilterChains[0], "com", "com")
+	assertNumberOfVirtualHosts(t, listener.FilterChains[0], 1)
+	assertNumberOfVirtualHosts(t, listener.FilterChains[1], 1)
 }
