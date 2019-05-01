@@ -90,36 +90,35 @@ func compareHosts(pattern, host string) bool {
 	return false
 }
 
-func (c *KubernetesConfigurator) matchCertificateIndex(virtualHost *virtualHost) (int, error) {
-	matchedHostLength := 0
-	matchedHostIdx := 0
+func (c *KubernetesConfigurator) matchCertificateIndices(virtualHost *virtualHost) ([]int, error) {
+	matchedIndicies := []int{}
 
 	for idx, certificate := range c.certificates {
 		for _, host := range certificate.Hosts {
-			if (host == "*" || compareHosts(host, virtualHost.Host)) &&  // star matches everything unlike *.thing.com which only matches one level
-				len(host) > matchedHostLength {
-				matchedHostLength = len(host)
-				matchedHostIdx = idx
+			if (host == "*" || compareHosts(host, virtualHost.Host)) {  // star matches everything unlike *.thing.com which only matches one level
+				matchedIndicies = append(matchedIndicies, idx)
 			}
 		}
 	}
 
-	if matchedHostLength > 0 {
-		return matchedHostIdx, nil
+	if len(matchedIndicies) > 0 {
+		return matchedIndicies, nil
 	}
 
-	return 0, errNoCertificateMatch
+	return []int{}, errNoCertificateMatch
 }
 
 func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) []cache.Resource {
 	virtualHostsForCertificates := make([][]route.VirtualHost, len(c.certificates))
 
 	for _, virtualHost := range config.VirtualHosts {
-		certificateIndex, err := c.matchCertificateIndex(virtualHost)
+		certificateIndicies, err := c.matchCertificateIndices(virtualHost)
 		if err != nil {
 			log.Printf("Error matching certificate for '%s': %v", virtualHost.Host, err)
 		} else {
-			virtualHostsForCertificates[certificateIndex] = append(virtualHostsForCertificates[certificateIndex], makeVirtualHost(virtualHost))
+			for _, idx := range certificateIndicies {
+				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], makeVirtualHost(virtualHost))
+			}
 		}
 	}
 
