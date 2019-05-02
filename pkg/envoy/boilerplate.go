@@ -136,11 +136,24 @@ func makeFilterChain(certificate Certificate, virtualHosts []route.VirtualHost) 
 		},
 	}
 
+	filterChainMatch := &listener.FilterChainMatch{}
+
+	hosts := []string{}
+
+	for _, host := range certificate.Hosts {
+		if host != "*" {
+			hosts = append(hosts, host)
+		}
+	}
+
+	if len(hosts) > 0 {
+		filterChainMatch.ServerNames = hosts
+	}
+
+
 	return listener.FilterChain{
 		TlsContext: tls,
-		FilterChainMatch: &listener.FilterChainMatch{
-			ServerNames: certificate.Hosts,
-		},
+		FilterChainMatch: filterChainMatch,
 		Filters: []listener.Filter{
 			listener.Filter{
 				Name:   "envoy.http_connection_manager",

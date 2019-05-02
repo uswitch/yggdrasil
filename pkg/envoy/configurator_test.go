@@ -26,6 +26,7 @@ func assertNumberOfVirtualHosts(t *testing.T, filterChain listener.FilterChain, 
 	if len(virtualHosts) != expected {
 		t.Fatalf("Num virtual hosts: %d expected %d", len(virtualHosts), expected)
 	}
+
 }
 
 func assertTlsCertificate(t *testing.T, filterChain listener.FilterChain, expectedCert, expectedKey string) {
@@ -40,6 +41,20 @@ func assertTlsCertificate(t *testing.T, filterChain listener.FilterChain, expect
 
 	if keyFile.InlineString != expectedKey {
 		t.Fatalf("private key filename: '%s' expected '%s'", keyFile.InlineString, expectedKey)
+	}
+}
+
+func assertServerNames(t *testing.T, filterChain listener.FilterChain, expectedServerNames []string) {
+	serverNames := filterChain.FilterChainMatch.ServerNames
+
+	if len(serverNames) != len(expectedServerNames) {
+		t.Fatalf("not the same number of server names: '%d' expected '%d'", len(serverNames), len(expectedServerNames))
+	}
+
+	for idx, expectedServerName := range expectedServerNames {
+		if serverNames[idx] != expectedServerName {
+			t.Errorf("server names do not match: '%v' expected '%v'", serverNames[idx], expectedServerName)
+		}
 	}
 }
 
@@ -130,7 +145,7 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
 		{ Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com", },
-		{ Hosts: []string{"*.internal.api.com"}, Cert: "all", Key: "all", },
+		{ Hosts: []string{"*"}, Cert: "all", Key: "all", },
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
@@ -141,5 +156,8 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 	}
 
 	assertNumberOfVirtualHosts(t, listener.FilterChains[0], 1)
+	assertServerNames(t, listener.FilterChains[0], []string{"*.internal.api.com"})
+
 	assertNumberOfVirtualHosts(t, listener.FilterChains[1], 1)
+	assertServerNames(t, listener.FilterChains[1], nil)
 }
