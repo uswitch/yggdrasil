@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -71,7 +72,9 @@ func init() {
 	rootCmd.PersistentFlags().StringSlice("ingress-classes", nil, "Ingress classes to watch")
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
+	rootCmd.PersistentFlags().Bool("dump", false, "Dump snapshot")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	viper.BindPFlag("dump", rootCmd.PersistentFlags().Lookup("dump"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
 	viper.BindPFlag("ingressClasses", rootCmd.PersistentFlags().Lookup("ingress-classes"))
 	viper.BindPFlag("cert", rootCmd.PersistentFlags().Lookup("cert"))
@@ -155,14 +158,45 @@ func main(*cobra.Command, []string) error {
 		c.Certificates,
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"))
-	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
-	go snapshotter.Run(ctx)
-	lister.Run(ctx)
 
-	envoyServer := server.NewServer(envoyCache, &callbacks{})
-	go runEnvoyServer(envoyServer, ctx.Done())
+	if viper.Get("dump") == true {
 
-	<-stopCh
+		ctx, cancel := context.WithCancel(context.Background())
+
+		go func() { for _ = range lister.Events() {} }()
+
+		err := lister.Run(ctx)
+		if err != nil {
+			log.Fatalf("Failed to sync ingresses: %v", err)
+		}
+		cancel()
+
+		ingresses, err := lister.List()
+		if err != nil {
+			log.Fatalf("Failed to get ingresses: %v", err)
+		}
+
+		snapshot := configurator.Generate(ingresses)
+
+		out, err := json.Marshal(snapshot)
+		if err != nil {
+			log.Fatalf("Failed to jsonify snapshot: %v", err)
+		}
+
+		fmt.Printf("%s\n", out)
+
+	} else {
+
+		snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
+		go snapshotter.Run(ctx)
+		lister.Run(ctx)
+
+		envoyServer := server.NewServer(envoyCache, &callbacks{})
+		go runEnvoyServer(envoyServer, ctx.Done())
+
+		<-stopCh
+	}
+
 	return nil
 }
 
