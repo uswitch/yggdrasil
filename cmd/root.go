@@ -75,7 +75,7 @@ func init() {
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
 	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
-	rootCmd.PersistentFlags().Uint32("envoy-port", 443, "port by the envoy proxy to accept incoming connections")
+	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
