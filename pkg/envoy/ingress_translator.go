@@ -148,7 +148,7 @@ type envoyIngress struct {
 }
 
 func newEnvoyIngress(host string) *envoyIngress {
-	clusterName := strings.ReplaceAll(host, ".", "_")
+	clusterName := strings.Replace(host, ".", "_", -1)
 	return &envoyIngress{
 		vhost: &virtualHost{
 			Host:            host,
