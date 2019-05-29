@@ -14,6 +14,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	fal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	al "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	hcfg "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
@@ -78,6 +79,20 @@ func makeVirtualHost(vhost *virtualHost) route.VirtualHost {
 	return virtualHost
 }
 
+func makeHealthConfig() *hcfg.HealthCheck {
+	return &hcfg.HealthCheck{
+		PassThroughMode: &types.BoolValue{Value: false},
+		Headers: []*route.HeaderMatcher{
+			&route.HeaderMatcher{
+				Name: ":path",
+				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+					ExactMatch: "/yggdrasil/status",
+				},
+			},
+		},
+	}
+}
+
 func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnectionManager {
 	accessLogConfig, err := util.MessageToStruct(&fal.FileAccessLog{
 		Path:   "/var/log/envoy/access.log",
@@ -86,12 +101,20 @@ func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnection
 	if err != nil {
 		log.Fatalf("failed to convert: %s", err)
 	}
+	healthConfig, err := util.MessageToStruct(makeHealthConfig())
+	if err != nil {
+		log.Fatalf("failed to convert: %s", err)
+	}
 	return &hcm.HttpConnectionManager{
 		CodecType:  hcm.AUTO,
 		StatPrefix: "ingress_http",
-		HttpFilters: []*hcm.HttpFilter{&hcm.HttpFilter{
-			Name: "envoy.router",
-		}},
+		HttpFilters: []*hcm.HttpFilter{
+			&hcm.HttpFilter{
+				Name:   "envoy.health_check",
+				Config: healthConfig,
+			}, &hcm.HttpFilter{
+				Name: "envoy.router",
+			}},
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
 			{
 				UpgradeType: "websocket",
