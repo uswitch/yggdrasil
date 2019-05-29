@@ -31,12 +31,13 @@ type clusterConfig struct {
 }
 
 type config struct {
-	IngressClass string              `json:"ingressClass"`
-	NodeName     string              `json:"nodeName"`
-	Clusters     []clusterConfig     `json:"clusters"`
-	Certificates []envoy.Certificate `json:"certificates"`
-	TrustCA      string              `json:"trustCA"`
-	UpstreamPort uint32              `json:"upstreamPort"`
+	IngressClass          string              `json:"ingressClass"`
+	NodeName              string              `json:"nodeName"`
+	Clusters              []clusterConfig     `json:"clusters"`
+	Certificates          []envoy.Certificate `json:"certificates"`
+	TrustCA               string              `json:"trustCA"`
+	UpstreamPort          uint32              `json:"upstreamPort"`
+	EnvoyPort             uint32              `json:"envoyPort"`
 }
 
 // Hasher returns node ID as an ID
