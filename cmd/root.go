@@ -158,15 +158,14 @@ func main(*cobra.Command, []string) error {
 		c.Certificates[idx].Cert = string(certBytes)
 		c.Certificates[idx].Key = string(keyBytes)
 	}
-
 	lister := k8s.NewIngressAggregator(sources)
 	configurator := envoy.NewKubernetesConfigurator(
 		viper.GetString("nodeName"),
 		c.Certificates,
 		viper.GetString("trustCA"),
-		uint32(viper.GetInt32("upstreamPort")),
-		uint32(viper.GetInt32("envoyPort")),
-		viper.GetStringSlice("ingressClasses"))
+		viper.GetStringSlice("ingressClasses"),
+		envoy.WithUpstreamPort(uint32(viper.GetInt32("upstreamPort"))),
+		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))))
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 
 	go snapshotter.Run(ctx)
