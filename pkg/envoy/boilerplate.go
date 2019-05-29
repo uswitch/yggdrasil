@@ -71,6 +71,12 @@ func makeVirtualHost(vhost *virtualHost) route.VirtualHost {
 					RetryPolicy: &route.RouteAction_RetryPolicy{
 						RetryOn:       "5xx",
 						PerTryTimeout: &vhost.PerTryTimeout,
+						RetryHostPredicate: []*route.RouteAction_RetryPolicy_RetryHostPredicate{
+							{
+								Name: "envoy.retry_host_predicates.previous_hosts",
+							},
+						},
+						HostSelectionRetryMaxAttempts: 3,
 					},
 				},
 			},
