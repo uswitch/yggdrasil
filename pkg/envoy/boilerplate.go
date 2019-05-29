@@ -8,6 +8,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	v2cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -228,7 +229,7 @@ func makeHealthChecks(healthPath string) []*core.HealthCheck {
 	return healthChecks
 }
 
-func makeCluster(host, ca, healthPath string, timeout time.Duration, addresses []*core.Address) *v2.Cluster {
+func makeCluster(host, ca, healthPath string, timeout time.Duration, outlierPercentage uint32, addresses []*core.Address) *v2.Cluster {
 
 	tls := &auth.UpstreamTlsContext{}
 	if ca != "" {
@@ -266,6 +267,9 @@ func makeCluster(host, ca, healthPath string, timeout time.Duration, addresses [
 		},
 		TlsContext:   tls,
 		HealthChecks: healthChecks,
+		OutlierDetection: &v2cluster.OutlierDetection{
+			MaxEjectionPercent: &types.UInt32Value{Value: outlierPercentage},
+		},
 	}
 	return cluster
 }

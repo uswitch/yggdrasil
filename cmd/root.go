@@ -38,6 +38,7 @@ type config struct {
 	TrustCA               string              `json:"trustCA"`
 	UpstreamPort          uint32              `json:"upstreamPort"`
 	EnvoyPort             uint32              `json:"envoyPort"`
+	MaxEjectionPercentage uint32              `json:"maxEjectionPercentage"`
 }
 
 // Hasher returns node ID as an ID
@@ -77,6 +78,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
 	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
 	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
+	rootCmd.PersistentFlags().Uint32("max-ejection-percentage", 10, "maximal percentage of hosts ejected via outlier detection")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
@@ -87,7 +89,7 @@ func init() {
 	viper.BindPFlag("trustCA", rootCmd.PersistentFlags().Lookup("ca"))
 	viper.BindPFlag("upstreamPort", rootCmd.PersistentFlags().Lookup("upstream-port"))
 	viper.BindPFlag("envoyPort", rootCmd.PersistentFlags().Lookup("envoy-port"))
-
+	viper.BindPFlag("maxEjectionPercentage", rootCmd.PersistentFlags().Lookup("max-ejection-percentage"))
 }
 
 func initConfig() {
@@ -166,7 +168,9 @@ func main(*cobra.Command, []string) error {
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"),
 		envoy.WithUpstreamPort(uint32(viper.GetInt32("upstreamPort"))),
-		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))))
+		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))),
+		envoy.WithOutlierPercentage(uint32(viper.GetInt32("maxEjectionPercentage"))),
+	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 
 	go snapshotter.Run(ctx)
