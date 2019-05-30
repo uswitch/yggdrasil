@@ -34,14 +34,14 @@ func (c *callbacks) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse)
 	c.fetchResp++
 }
 
-func runEnvoyServer(envoyServer server.Server, stopCh <-chan struct{}) {
+func runEnvoyServer(envoyServer server.Server, address string, healthAddress string, stopCh <-chan struct{}) {
 
 	grpcServer := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
 
-	lis, err := net.Listen("tcp", "0.0.0.0:8080")
+	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatal("failed to listen")
 	}
@@ -55,7 +55,7 @@ func runEnvoyServer(envoyServer server.Server, stopCh <-chan struct{}) {
 	healthMux := http.NewServeMux()
 
 	healthServer := &http.Server{
-		Addr:    fmt.Sprintf(":8081"),
+		Addr:    fmt.Sprintf(healthAddress),
 		Handler: healthMux,
 	}
 

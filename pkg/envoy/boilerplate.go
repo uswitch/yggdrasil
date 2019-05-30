@@ -150,9 +150,8 @@ func makeFilterChain(certificate Certificate, virtualHosts []route.VirtualHost) 
 		filterChainMatch.ServerNames = hosts
 	}
 
-
 	return listener.FilterChain{
-		TlsContext: tls,
+		TlsContext:       tls,
 		FilterChainMatch: filterChainMatch,
 		Filters: []listener.Filter{
 			listener.Filter{
@@ -163,7 +162,7 @@ func makeFilterChain(certificate Certificate, virtualHosts []route.VirtualHost) 
 	}, nil
 }
 
-func makeListener(filterChains []listener.FilterChain) *v2.Listener {
+func makeListener(filterChains []listener.FilterChain, envoyListenPort uint32) *v2.Listener {
 
 	listener := v2.Listener{
 		Name: "listener_0",
@@ -172,13 +171,13 @@ func makeListener(filterChains []listener.FilterChain) *v2.Listener {
 				SocketAddress: &core.SocketAddress{
 					Address: "0.0.0.0",
 					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: 10000,
+						PortValue: envoyListenPort,
 					},
 				},
 			},
 		},
 		ListenerFilters: []listener.ListenerFilter{
-			{ Name: "envoy.listener.tls_inspector" },
+			{Name: "envoy.listener.tls_inspector"},
 		},
 		FilterChains: filterChains,
 	}
@@ -186,7 +185,7 @@ func makeListener(filterChains []listener.FilterChain) *v2.Listener {
 	return &listener
 }
 
-func makeAddresses(addresses []string) []*core.Address {
+func makeAddresses(addresses []string, upstreamPort uint32) []*core.Address {
 
 	envoyAddresses := []*core.Address{}
 	for _, address := range addresses {
@@ -195,7 +194,7 @@ func makeAddresses(addresses []string) []*core.Address {
 				SocketAddress: &core.SocketAddress{
 					Address: address,
 					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: 443,
+						PortValue: upstreamPort,
 					},
 				},
 			},
@@ -251,7 +250,7 @@ func makeCluster(host, ca, healthPath string, timeout time.Duration, addresses [
 
 	for idx, address := range addresses {
 		endpoints[idx] = endpoint.LbEndpoint{
-			Endpoint: &endpoint.Endpoint{ Address: address },
+			Endpoint: &endpoint.Endpoint{Address: address},
 		}
 	}
 
@@ -262,11 +261,11 @@ func makeCluster(host, ca, healthPath string, timeout time.Duration, addresses [
 		LoadAssignment: &v2.ClusterLoadAssignment{
 			ClusterName: host,
 			Endpoints: []endpoint.LocalityLbEndpoints{
-				{ LbEndpoints: endpoints, },
+				{LbEndpoints: endpoints},
 			},
 		},
-		TlsContext:     tls,
-		HealthChecks:   healthChecks,
+		TlsContext:   tls,
+		HealthChecks: healthChecks,
 	}
 	return cluster
 }

@@ -64,7 +64,7 @@ func TestGenerate(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*"}, Cert: "b", Key: "c", },
+		{Hosts: []string{"*"}, Cert: "b", Key: "c"},
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
@@ -84,8 +84,8 @@ func TestGenerateMultipleCerts(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com", },
-		{ Hosts: []string{"*.internal.api.co.uk"}, Cert: "couk", Key: "couk", },
+		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
+		{Hosts: []string{"*.internal.api.co.uk"}, Cert: "couk", Key: "couk"},
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
@@ -106,7 +106,7 @@ func TestGenerateMultipleHosts(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*.internal.api.com", "*.internal.api.co.uk"}, Cert: "com", Key: "com", },
+		{Hosts: []string{"*.internal.api.com", "*.internal.api.co.uk"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
@@ -127,7 +127,7 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com", },
+		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
@@ -144,8 +144,8 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
-		{ Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com", },
-		{ Hosts: []string{"*"}, Cert: "all", Key: "all", },
+		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
+		{Hosts: []string{"*"}, Cert: "all", Key: "all"},
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)

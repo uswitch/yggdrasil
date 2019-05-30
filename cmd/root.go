@@ -31,11 +31,13 @@ type clusterConfig struct {
 }
 
 type config struct {
-	IngressClass string              `json:"ingressClass"`
-	NodeName     string              `json:"nodeName"`
-	Clusters     []clusterConfig     `json:"clusters"`
-	Certificates []envoy.Certificate `json:"certificates"`
-	TrustCA      string          `json:"trustCA"`
+	IngressClass          string              `json:"ingressClass"`
+	NodeName              string              `json:"nodeName"`
+	Clusters              []clusterConfig     `json:"clusters"`
+	Certificates          []envoy.Certificate `json:"certificates"`
+	TrustCA               string              `json:"trustCA"`
+	UpstreamPort          uint32              `json:"upstreamPort"`
+	EnvoyPort             uint32              `json:"envoyPort"`
 }
 
 // Hasher returns node ID as an ID
@@ -64,6 +66,8 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
+	rootCmd.PersistentFlags().String("address", "0.0.0.0:8080", "yggdrasil envoy control plane listen address")
+	rootCmd.PersistentFlags().String("health-address", "0.0.0.0:8081", "yggdrasil health API listen address")
 	rootCmd.PersistentFlags().String("node-name", "", "envoy node name")
 	rootCmd.PersistentFlags().String("cert", "", "certfile")
 	rootCmd.PersistentFlags().String("key", "", "keyfile")
@@ -71,12 +75,19 @@ func init() {
 	rootCmd.PersistentFlags().StringSlice("ingress-classes", nil, "Ingress classes to watch")
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
+	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
+	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
+	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
 	viper.BindPFlag("ingressClasses", rootCmd.PersistentFlags().Lookup("ingress-classes"))
 	viper.BindPFlag("cert", rootCmd.PersistentFlags().Lookup("cert"))
 	viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
 	viper.BindPFlag("trustCA", rootCmd.PersistentFlags().Lookup("ca"))
+	viper.BindPFlag("upstreamPort", rootCmd.PersistentFlags().Lookup("upstream-port"))
+	viper.BindPFlag("envoyPort", rootCmd.PersistentFlags().Lookup("envoy-port"))
+
 }
 
 func initConfig() {
@@ -126,7 +137,7 @@ func main(*cobra.Command, []string) error {
 
 	if len(c.Certificates) == 0 {
 		c.Certificates = []envoy.Certificate{
-			{ Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key"), },
+			{Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key")},
 		}
 	}
 
@@ -148,19 +159,21 @@ func main(*cobra.Command, []string) error {
 		c.Certificates[idx].Cert = string(certBytes)
 		c.Certificates[idx].Key = string(keyBytes)
 	}
-
 	lister := k8s.NewIngressAggregator(sources)
 	configurator := envoy.NewKubernetesConfigurator(
 		viper.GetString("nodeName"),
 		c.Certificates,
 		viper.GetString("trustCA"),
-		viper.GetStringSlice("ingressClasses"))
+		viper.GetStringSlice("ingressClasses"),
+		envoy.WithUpstreamPort(uint32(viper.GetInt32("upstreamPort"))),
+		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))))
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
+
 	go snapshotter.Run(ctx)
 	lister.Run(ctx)
 
 	envoyServer := server.NewServer(envoyCache, &callbacks{})
-	go runEnvoyServer(envoyServer, ctx.Done())
+	go runEnvoyServer(envoyServer, viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
 
 	<-stopCh
 	return nil
