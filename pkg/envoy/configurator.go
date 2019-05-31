@@ -21,13 +21,14 @@ type Certificate struct {
 
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
-	ingressClasses    []string
-	nodeID            string
-	certificates      []Certificate
-	trustCA           string
-	upstreamPort      uint32
-	envoyListenPort   uint32
-	outlierPercentage int32
+	ingressClasses             []string
+	nodeID                     string
+	certificates               []Certificate
+	trustCA                    string
+	upstreamPort               uint32
+	envoyListenPort            uint32
+	outlierPercentage          int32
+	hostSelectionRetryAttempts int64
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -125,7 +126,7 @@ func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) [
 			log.Printf("Error matching certificate for '%s': %v", virtualHost.Host, err)
 		} else {
 			for _, idx := range certificateIndicies {
-				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], makeVirtualHost(virtualHost))
+				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
 			}
 		}
 	}
