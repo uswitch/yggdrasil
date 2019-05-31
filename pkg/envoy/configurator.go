@@ -21,12 +21,13 @@ type Certificate struct {
 
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
-	ingressClasses  []string
-	nodeID          string
-	certificates    []Certificate
-	trustCA         string
-	upstreamPort    uint32
-	envoyListenPort uint32
+	ingressClasses    []string
+	nodeID            string
+	certificates      []Certificate
+	trustCA           string
+	upstreamPort      uint32
+	envoyListenPort   uint32
+	outlierPercentage int32
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -153,7 +154,7 @@ func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []
 
 	for _, cluster := range config.Clusters {
 		addresses := makeAddresses(cluster.Hosts, c.upstreamPort)
-		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, cluster.Timeout, addresses)
+		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, cluster.Timeout, c.outlierPercentage, addresses)
 		clusters = append(clusters, cluster)
 	}
 
