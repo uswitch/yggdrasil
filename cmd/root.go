@@ -78,7 +78,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
 	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
 	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
-	rootCmd.PersistentFlags().Uint32("max-ejection-percentage", 10, "maximal percentage of hosts ejected via outlier detection")
+	rootCmd.PersistentFlags().Int32("max-ejection-percentage", -1, "maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy.")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
@@ -169,7 +169,7 @@ func main(*cobra.Command, []string) error {
 		viper.GetStringSlice("ingressClasses"),
 		envoy.WithUpstreamPort(uint32(viper.GetInt32("upstreamPort"))),
 		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))),
-		envoy.WithOutlierPercentage(uint32(viper.GetInt32("maxEjectionPercentage"))),
+		envoy.WithOutlierPercentage(viper.GetInt32("maxEjectionPercentage")),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 

@@ -229,7 +229,7 @@ func makeHealthChecks(healthPath string) []*core.HealthCheck {
 	return healthChecks
 }
 
-func makeCluster(host, ca, healthPath string, timeout time.Duration, outlierPercentage uint32, addresses []*core.Address) *v2.Cluster {
+func makeCluster(host, ca, healthPath string, timeout time.Duration, outlierPercentage int32, addresses []*core.Address) *v2.Cluster {
 
 	tls := &auth.UpstreamTlsContext{}
 	if ca != "" {
@@ -267,9 +267,11 @@ func makeCluster(host, ca, healthPath string, timeout time.Duration, outlierPerc
 		},
 		TlsContext:   tls,
 		HealthChecks: healthChecks,
-		OutlierDetection: &v2cluster.OutlierDetection{
-			MaxEjectionPercent: &types.UInt32Value{Value: outlierPercentage},
-		},
+	}
+	if outlierPercentage >= 0 {
+		cluster.OutlierDetection = &v2cluster.OutlierDetection{
+			MaxEjectionPercent: &types.UInt32Value{Value: uint32(outlierPercentage)},
+		}
 	}
 	return cluster
 }

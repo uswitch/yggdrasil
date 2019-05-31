@@ -27,7 +27,7 @@ type KubernetesConfigurator struct {
 	trustCA           string
 	upstreamPort      uint32
 	envoyListenPort   uint32
-	outlierPercentage uint32
+	outlierPercentage int32
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string

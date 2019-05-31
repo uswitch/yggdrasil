@@ -17,7 +17,7 @@ func WithUpstreamPort(port uint32) option {
 }
 
 // WithOutlierPercentage configures the given percentage as maximal outlier percentage into a KubernetesConfigurator
-func WithOutlierPercentage(percentage uint32) option {
+func WithOutlierPercentage(percentage int32) option {
 	return func(c *KubernetesConfigurator) {
 		c.outlierPercentage = percentage
 	}
