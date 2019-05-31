@@ -240,17 +240,15 @@ func makeAddresses(addresses []string, upstreamPort uint32) []*core.Address {
 	return envoyAddresses
 }
 
-func makeHealthChecks(healthPath string) []*core.HealthCheck {
+func makeHealthChecks(healthPath string, config UpstreamHealthCheck) []*core.HealthCheck {
 	healthChecks := []*core.HealthCheck{}
-	healthCheckTimeout, _ := time.ParseDuration("5s")
-	healthCheckInterval, _ := time.ParseDuration("10s")
 
 	if healthPath != "" {
 		check := &core.HealthCheck{
-			Timeout:            &healthCheckTimeout,
-			Interval:           &healthCheckInterval,
-			UnhealthyThreshold: &types.UInt32Value{Value: 3},
-			HealthyThreshold:   &types.UInt32Value{Value: 3},
+			Timeout:            &config.Timeout,
+			Interval:           &config.Interval,
+			UnhealthyThreshold: &types.UInt32Value{Value: config.UnhealthyThreshold},
+			HealthyThreshold:   &types.UInt32Value{Value: config.HealthyThreshold},
 			HealthChecker: &core.HealthCheck_HttpHealthCheck_{
 				HttpHealthCheck: &core.HealthCheck_HttpHealthCheck{
 					Path: healthPath,
@@ -263,7 +261,7 @@ func makeHealthChecks(healthPath string) []*core.HealthCheck {
 	return healthChecks
 }
 
-func makeCluster(host, ca, healthPath string, timeout time.Duration, outlierPercentage int32, addresses []*core.Address) *v2.Cluster {
+func makeCluster(host, ca, healthPath string, healthCfg UpstreamHealthCheck, timeout time.Duration, outlierPercentage int32, addresses []*core.Address) *v2.Cluster {
 
 	tls := &auth.UpstreamTlsContext{}
 	if ca != "" {
@@ -279,7 +277,7 @@ func makeCluster(host, ca, healthPath string, timeout time.Duration, outlierPerc
 	} else {
 		tls = nil
 	}
-	healthChecks := makeHealthChecks(healthPath)
+	healthChecks := makeHealthChecks(healthPath, healthCfg)
 
 	endpoints := make([]endpoint.LbEndpoint, len(addresses))
 
