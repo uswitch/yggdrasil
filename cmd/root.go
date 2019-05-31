@@ -140,7 +140,7 @@ func main(*cobra.Command, []string) error {
 	hash := Hasher{}
 	envoyCache := cache.NewSnapshotCache(false, hash, nil)
 
-	if len(c.Certificates) == 0 {
+	if len(c.Certificates) == 0 && viper.GetString("cert") != "" && viper.GetString("key") != "" {
 		c.Certificates = []envoy.Certificate{
 			{Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key")},
 		}
