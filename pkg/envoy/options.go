@@ -22,3 +22,11 @@ func WithOutlierPercentage(percentage int32) option {
 		c.outlierPercentage = percentage
 	}
 }
+
+// WithHostSelectionRetryAttempts configures number of host selection reattempts into a KubernetesConfigurator
+func WithHostSelectionRetryAttempts(attempts int64) option {
+	return func(c *KubernetesConfigurator) {
+		c.hostSelectionRetryAttempts = attempts
+
+	}
+}
