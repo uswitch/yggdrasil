@@ -17,7 +17,7 @@
   revision = "782f4967f2dc4564575ca782fe2d04090b5faca8"
 
 [[projects]]
-  digest = "1:32fb495382eebbb9ce964b2fb52c1bf08de5134e6317eeae21c3d2ea7c133d96"
+  digest = "1:d5cfc2182fcbda88c7f1aaca35cd5b2e27348474d71d18716ad438dc24fb6d90"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/api/v2",
@@ -29,6 +29,7 @@
     "envoy/api/v2/route",
     "envoy/config/accesslog/v2",
     "envoy/config/filter/accesslog/v2",
+    "envoy/config/filter/http/health_check/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/service/discovery/v2",
     "envoy/type",
@@ -709,10 +710,12 @@
     "github.com/envoyproxy/go-control-plane/envoy/api/v2",
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth",
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/core",
+    "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint",
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener",
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/route",
     "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2",
     "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2",
     "github.com/envoyproxy/go-control-plane/pkg/cache",
