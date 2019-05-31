@@ -131,7 +131,7 @@ func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) [
 func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) []listener.FilterChain {
 	virtualHosts := []route.VirtualHost{}
 	for _, virtualHost := range config.VirtualHosts {
-		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost))
+		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
 	}
 
 	httpConnectionManager := makeConnectionManager(virtualHosts)
