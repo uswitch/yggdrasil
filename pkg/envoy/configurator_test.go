@@ -2,6 +2,7 @@ package envoy
 
 import (
 	"testing"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -160,4 +161,73 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 
 	assertNumberOfVirtualHosts(t, listener.FilterChains[1], 1)
 	assertServerNames(t, listener.FilterChains[1], nil)
+}
+
+func TestGenerateListeners(t *testing.T) {
+	testcases := []struct {
+		name        string
+		certs       []Certificate
+		virtualHost []*virtualHost
+		serverNames []string
+	}{
+		{
+			name:  "http",
+			certs: nil,
+			virtualHost: []*virtualHost{
+				{Host: "foo", Timeout: 1 * time.Second, PerTryTimeout: 500 * time.Millisecond},
+				{Host: "bar", Timeout: 1 * time.Second, PerTryTimeout: 500 * time.Millisecond},
+			},
+			serverNames: []string{"foo", "bar"},
+		},
+		{
+			name: "https",
+			certs: []Certificate{
+				{
+					Hosts: []string{"foo", "bar"},
+					Cert:  "cert",
+					Key:   "key",
+				},
+			},
+			virtualHost: []*virtualHost{
+				{Host: "foo", Timeout: 1 * time.Second, PerTryTimeout: 500 * time.Millisecond},
+				{Host: "bar", Timeout: 1 * time.Second, PerTryTimeout: 500 * time.Millisecond},
+			},
+			serverNames: []string{"foo", "bar"},
+		},
+		{
+			name: "more-certs-than-hosts",
+			certs: []Certificate{
+				{
+					Hosts: []string{"foo", "bar"},
+					Cert:  "cert",
+					Key:   "key",
+				}, {
+					Hosts: []string{"baz"},
+					Cert:  "cert",
+					Key:   "key",
+				},
+			},
+			virtualHost: []*virtualHost{
+				{Host: "foo", Timeout: 1 * time.Second, PerTryTimeout: 500 * time.Millisecond},
+				{Host: "bar", Timeout: 1 * time.Second, PerTryTimeout: 500 * time.Millisecond},
+			},
+			serverNames: []string{"foo", "bar"},
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			configurator := NewKubernetesConfigurator("a", tc.certs, "", nil)
+			ret := configurator.generateListeners(&envoyConfiguration{VirtualHosts: tc.virtualHost})
+			listener := ret[0].(*v2.Listener)
+			if len(listener.FilterChains) != 1 {
+				t.Fatalf("filterchain number missmatch")
+			}
+			assertNumberOfVirtualHosts(t, listener.FilterChains[0], 2)
+			if len(tc.certs) > 0 {
+				if listener.FilterChains[0].FilterChainMatch == nil {
+					t.Fatalf("Expected filter chain")
+				}
+			}
+		})
+	}
 }
