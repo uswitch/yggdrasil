@@ -19,6 +19,13 @@ type Certificate struct {
 	Key   string   `json:"key"`
 }
 
+type UpstreamHealthCheck struct {
+	Timeout            time.Duration `json:"timeout"`
+	Interval           time.Duration `json:"interval"`
+	UnhealthyThreshold uint32        `json:"unhealthyThreshold"`
+	HealthyThreshold   uint32        `json:"healtyThreshold"`
+}
+
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
 	ingressClasses             []string
@@ -29,6 +36,7 @@ type KubernetesConfigurator struct {
 	envoyListenPort            uint32
 	outlierPercentage          int32
 	hostSelectionRetryAttempts int64
+	upstreamHealthCheck        UpstreamHealthCheck
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -155,7 +163,7 @@ func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []
 
 	for _, cluster := range config.Clusters {
 		addresses := makeAddresses(cluster.Hosts, c.upstreamPort)
-		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, cluster.Timeout, c.outlierPercentage, addresses)
+		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, c.upstreamHealthCheck, cluster.Timeout, c.outlierPercentage, addresses)
 		clusters = append(clusters, cluster)
 	}
 

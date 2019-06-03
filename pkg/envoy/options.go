@@ -30,3 +30,10 @@ func WithHostSelectionRetryAttempts(attempts int64) option {
 
 	}
 }
+
+// WithUpstreamHealthCheck configures the upstream health check into the KubernetesConfigurator
+func WithUpstreamHealthCheck(config UpstreamHealthCheck) option {
+	return func(c *KubernetesConfigurator) {
+		c.upstreamHealthCheck = config
+	}
+}

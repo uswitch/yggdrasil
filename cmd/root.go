@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
@@ -31,15 +32,16 @@ type clusterConfig struct {
 }
 
 type config struct {
-	IngressClass               string              `json:"ingressClass"`
-	NodeName                   string              `json:"nodeName"`
-	Clusters                   []clusterConfig     `json:"clusters"`
-	Certificates               []envoy.Certificate `json:"certificates"`
-	TrustCA                    string              `json:"trustCA"`
-	UpstreamPort               uint32              `json:"upstreamPort"`
-	EnvoyPort                  uint32              `json:"envoyPort"`
-	MaxEjectionPercentage      uint32              `json:"maxEjectionPercentage"`
-	HostSelectionRetryAttempts int64               `json:"hostSelectionRetryAttempts"`
+	IngressClass               string                    `json:"ingressClass"`
+	NodeName                   string                    `json:"nodeName"`
+	Clusters                   []clusterConfig           `json:"clusters"`
+	Certificates               []envoy.Certificate       `json:"certificates"`
+	TrustCA                    string                    `json:"trustCA"`
+	UpstreamPort               uint32                    `json:"upstreamPort"`
+	EnvoyPort                  uint32                    `json:"envoyPort"`
+	MaxEjectionPercentage      uint32                    `json:"maxEjectionPercentage"`
+	HostSelectionRetryAttempts int64                     `json:"hostSelectionRetryAttempts"`
+	UpstreamHealthCheck        envoy.UpstreamHealthCheck `json:"upstreamHealthCheck"`
 }
 
 // Hasher returns node ID as an ID
@@ -81,6 +83,10 @@ func init() {
 	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
 	rootCmd.PersistentFlags().Int32("max-ejection-percentage", -1, "maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy.")
 	rootCmd.PersistentFlags().Int64("host-selection-retry-attempts", -1, "Number of host selection retry attempts. Set to value >=0 to enable")
+	rootCmd.PersistentFlags().Duration("upstream-healthcheck-interval", 10*time.Second, "duration of the upstream health check interval")
+	rootCmd.PersistentFlags().Duration("upstream-healthcheck-timeout", 5*time.Second, "timeout of the upstream healthchecks")
+	rootCmd.PersistentFlags().Uint32("upstream-healthcheck-healthy", 3, "number of successful healthchecks before the backend is considered healthy")
+	rootCmd.PersistentFlags().Uint32("upstream-healthcheck-unhealthy", 3, "number of failed healthchecks before the backend is considered unhealthy")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
@@ -93,6 +99,10 @@ func init() {
 	viper.BindPFlag("envoyPort", rootCmd.PersistentFlags().Lookup("envoy-port"))
 	viper.BindPFlag("maxEjectionPercentage", rootCmd.PersistentFlags().Lookup("max-ejection-percentage"))
 	viper.BindPFlag("hostSelectionRetryAttempts", rootCmd.PersistentFlags().Lookup("host-selection-retry-attempts"))
+	viper.BindPFlag("upstreamHealthCheck.interval", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-interval"))
+	viper.BindPFlag("upstreamHealthCheck.timeout", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-timeout"))
+	viper.BindPFlag("upstreamHealthCheck.healthyThreshold", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-healthy"))
+	viper.BindPFlag("upstreamHealthCheck.unhealthyThreshold", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-unhealthy"))
 }
 
 func initConfig() {
@@ -174,6 +184,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))),
 		envoy.WithOutlierPercentage(viper.GetInt32("maxEjectionPercentage")),
 		envoy.WithHostSelectionRetryAttempts(viper.GetInt64("hostSelectionRetryAttempts")),
+		envoy.WithUpstreamHealthCheck(c.UpstreamHealthCheck),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 
