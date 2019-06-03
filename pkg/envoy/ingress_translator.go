@@ -2,6 +2,7 @@ package envoy
 
 import (
 	"sort"
+	"strings"
 	"time"
 
 	"k8s.io/api/extensions/v1beta1"
@@ -59,9 +60,10 @@ type envoyConfiguration struct {
 }
 
 type virtualHost struct {
-	Host          string
-	Timeout       time.Duration
-	PerTryTimeout time.Duration
+	Host            string
+	UpstreamCluster string
+	Timeout         time.Duration
+	PerTryTimeout   time.Duration
 }
 
 func (v *virtualHost) Equals(other *virtualHost) bool {
@@ -71,6 +73,7 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 
 	return v.Host == other.Host &&
 		v.Timeout == other.Timeout &&
+		v.UpstreamCluster == other.UpstreamCluster &&
 		v.PerTryTimeout == other.PerTryTimeout
 }
 
@@ -145,14 +148,16 @@ type envoyIngress struct {
 }
 
 func newEnvoyIngress(host string) *envoyIngress {
+	clusterName := strings.Replace(host, ".", "_", -1)
 	return &envoyIngress{
 		vhost: &virtualHost{
-			Host:          host,
-			Timeout:       (15 * time.Second),
-			PerTryTimeout: (5 * time.Second),
+			Host:            host,
+			UpstreamCluster: clusterName,
+			Timeout:         (15 * time.Second),
+			PerTryTimeout:   (5 * time.Second),
 		},
 		cluster: &cluster{
-			Name:            host,
+			Name:            clusterName,
 			Hosts:           []string{},
 			Timeout:         (30 * time.Second),
 			HealthCheckPath: "",

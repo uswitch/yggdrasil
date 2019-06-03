@@ -154,11 +154,15 @@ func TestGeneratesForSingleIngress(t *testing.T) {
 		t.Error("expected 1 clusters")
 	}
 
-	if c.Clusters[0].Name != "foo.app.com" {
+	if c.Clusters[0].Name != "foo_app_com" {
 		t.Errorf("expected cluster to be named after ingress host, was %s", c.Clusters[0].Name)
 	}
 	if c.Clusters[0].Hosts[0] != "foo.cluster.com" {
 		t.Errorf("expected cluster host for foo.cluster.com, was %s", c.Clusters[0].Hosts[0])
+	}
+
+	if c.VirtualHosts[0].UpstreamCluster != c.Clusters[0].Name {
+		t.Errorf("expected upstream cluster of vHost the same as the generated cluster, was %s and %s", c.VirtualHosts[0].UpstreamCluster, c.Clusters[0].Name)
 	}
 }
 
@@ -178,7 +182,7 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 		t.Errorf("expected 1 clusters, was %d", len(c.Clusters))
 	}
 
-	if c.Clusters[0].Name != "app.com" {
+	if c.Clusters[0].Name != "app_com" {
 		t.Errorf("expected cluster to be named after ingress host, was %s", c.Clusters[0].Name)
 	}
 
@@ -190,6 +194,10 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 	}
 	if c.Clusters[0].Hosts[1] != "bar.com" {
 		t.Errorf("expected cluster host for bar.com, was %s", c.Clusters[0].Hosts[1])
+	}
+
+	if c.VirtualHosts[0].UpstreamCluster != c.Clusters[0].Name {
+		t.Errorf("expected upstream cluster of vHost the same as the generated cluster, was %s and %s", c.VirtualHosts[0].UpstreamCluster, c.Clusters[0].Name)
 	}
 }
 

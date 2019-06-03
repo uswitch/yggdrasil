@@ -59,7 +59,7 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) route.Virtua
 		Route: &route.RouteAction{
 			Timeout: &vhost.Timeout,
 			ClusterSpecifier: &route.RouteAction_Cluster{
-				Cluster: vhost.Host,
+				Cluster: vhost.UpstreamCluster,
 			},
 			RetryPolicy: &route.RouteAction_RetryPolicy{
 				RetryOn:       "5xx",
