@@ -150,7 +150,12 @@ func main(*cobra.Command, []string) error {
 	hash := Hasher{}
 	envoyCache := cache.NewSnapshotCache(false, hash, nil)
 
-	if len(c.Certificates) == 0 {
+	err = checkDownStreamTLSSetup(viper.GetString("cert"), viper.GetString("key"))
+	if err != nil {
+		log.Fatalf("TLS setup failed: %s", err)
+	}
+
+	if len(c.Certificates) == 0 && viper.GetString("cert") != "" && viper.GetString("key") != "" {
 		c.Certificates = []envoy.Certificate{
 			{Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key")},
 		}
@@ -195,6 +200,18 @@ func main(*cobra.Command, []string) error {
 	go runEnvoyServer(envoyServer, viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
 
 	<-stopCh
+	return nil
+}
+
+// checkDownStreamTLSSetup if only one of the two values is set.
+func checkDownStreamTLSSetup(cert string, key string) error {
+	errorStringPattern := "only '%s' flag is specified. To enable TLS, specify both 'cert' and 'key'"
+	if cert == "" && key != "" {
+		return fmt.Errorf(errorStringPattern, "key")
+	}
+	if cert != "" && key == "" {
+		return fmt.Errorf(errorStringPattern, "cert")
+	}
 	return nil
 }
 

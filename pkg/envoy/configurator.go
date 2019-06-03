@@ -10,6 +10,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"k8s.io/api/extensions/v1beta1"
 )
 
@@ -126,6 +127,35 @@ func (c *KubernetesConfigurator) matchCertificateIndices(virtualHost *virtualHos
 }
 
 func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) []cache.Resource {
+	var filterChains []listener.FilterChain
+	if len(c.certificates) > 0 {
+		filterChains = c.generateTLSFilterChains(config)
+	} else {
+		filterChains = c.generateHTTPFilterChain(config)
+	}
+	return []cache.Resource{makeListener(filterChains, c.envoyListenPort)}
+}
+
+func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) []listener.FilterChain {
+	virtualHosts := []route.VirtualHost{}
+	for _, virtualHost := range config.VirtualHosts {
+		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
+	}
+
+	httpConnectionManager := makeConnectionManager(virtualHosts)
+	httpConfig, err := util.MessageToStruct(httpConnectionManager)
+	if err != nil {
+		log.Fatalf("failed to convert virtualHost to envoy control plane struct: %s", err)
+	}
+	return []listener.FilterChain{listener.FilterChain{
+		Filters: []listener.Filter{listener.Filter{
+			Name:   "envoy.http_connection_manager",
+			Config: httpConfig,
+		}},
+	}}
+}
+
+func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfiguration) []listener.FilterChain {
 	virtualHostsForCertificates := make([][]route.VirtualHost, len(c.certificates))
 
 	for _, virtualHost := range config.VirtualHosts {
@@ -154,8 +184,7 @@ func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) [
 
 		filterChains = append(filterChains, filterChain)
 	}
-
-	return []cache.Resource{makeListener(filterChains, c.envoyListenPort)}
+	return filterChains
 }
 
 func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []cache.Resource {
