@@ -2,7 +2,7 @@
 
 Yggdrasil is an Envoy control plane that configures listeners and clusters based off Kubernetes ingresses from multiple Kube Clusters. This allows you to have an envoy cluster acting as a mutli-cluster loadbalancer for Kubernetes. This was something we needed as we wanted our apps to be highly available in the event of a cluster outage but did not want the solution to live inside of Kubernetes itself.
 
-`Note:` Currently we support version 1.8.0 of Envoy.
+`Note:` Currently we support version 1.10.0 of Envoy.
 
 ## Usage
 Yggdrasil will watch all Ingresses in each Kubernetes Cluster that you give it via the Kubeconfig flag. Any ingresses that match any of the ingress classes that you have specified will have a listener and cluster created that listens on the same Host as the Host defined in the Ingress object. If you have multiple clusters Yggdrasil will create a cluster address for each Kubernetes cluster your Ingress is in, the address is the address of the ingress loadbalancer.
@@ -49,6 +49,10 @@ Your ingress set up then looks like this:
 ![Envoy Diagram](/img/envoysetup.png)
 
 Where the envoy nodes are loadbalancing between each cluster for a given ingress.
+
+### Health Check
+Yggdrasil always configures a path on your Envoy nodes at `/yggdrasil/status`, this can be used to health check your envoy nodes, it will only return 200 if your nodes have started and been configured by Yggdrasil.
+
 ## Configuration
 Yggdrasil can be configured using a config file e.g:
 ```json
@@ -86,12 +90,23 @@ Each cluster represents a different Kubernetes cluster with the token being a se
 
 ## Flags
 ```
---cert string                   certfile
---config string                 config file
---debug                         Log at debug level
---help                          help for yggdrasil
---ingress-classes stringArray   Ingress classes to watch
---key string                    keyfile
---kube-config stringArray       Path to kube config
---node-name string              envoy node name
+--address string                           yggdrasil envoy control plane listen address (default "0.0.0.0:8080")
+--ca string                                trustedCA
+--cert string                              certfile
+--config string                            config file
+--debug                                    Log at debug level
+--envoy-port uint32                        port by the envoy proxy to accept incoming connections (default 10000)
+--health-address string                    yggdrasil health API listen address (default "0.0.0.0:8081")
+-h, --help                                 help for yggdrasil
+--host-selection-retry-attempts int        Number of host selection retry attempts. Set to value >=0 to enable (default -1)
+--ingress-classes strings                  Ingress classes to watch
+--key string                               keyfile
+--kube-config stringArray                  Path to kube config
+--max-ejection-percentage int32            maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy. (default -1)
+--node-name string                         envoy node name
+--upstream-healthcheck-healthy uint32      number of successful healthchecks before the backend is considered healthy (default 3)
+--upstream-healthcheck-interval duration   duration of the upstream health check interval (default 10s)
+--upstream-healthcheck-timeout duration    timeout of the upstream healthchecks (default 5s)
+--upstream-healthcheck-unhealthy uint32    number of failed healthchecks before the backend is considered unhealthy (default 3)
+--upstream-port uint32                     port used to connect to the upstream ingresses (default 443)
 ```
