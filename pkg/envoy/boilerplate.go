@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -240,7 +241,7 @@ func makeAddresses(addresses []string, upstreamPort uint32) []*core.Address {
 	return envoyAddresses
 }
 
-func makeHealthChecks(healthPath string, config UpstreamHealthCheck) []*core.HealthCheck {
+func makeHealthChecks(clusterName string, healthPath string, config UpstreamHealthCheck) []*core.HealthCheck {
 	healthChecks := []*core.HealthCheck{}
 
 	if healthPath != "" {
@@ -251,6 +252,7 @@ func makeHealthChecks(healthPath string, config UpstreamHealthCheck) []*core.Hea
 			HealthyThreshold:   &types.UInt32Value{Value: config.HealthyThreshold},
 			HealthChecker: &core.HealthCheck_HttpHealthCheck_{
 				HttpHealthCheck: &core.HealthCheck_HttpHealthCheck{
+					Host: strings.Replace(clusterName, "_", ".", -1),
 					Path: healthPath,
 				},
 			},
@@ -261,7 +263,7 @@ func makeHealthChecks(healthPath string, config UpstreamHealthCheck) []*core.Hea
 	return healthChecks
 }
 
-func makeCluster(host, ca, healthPath string, healthCfg UpstreamHealthCheck, timeout time.Duration, outlierPercentage int32, addresses []*core.Address) *v2.Cluster {
+func makeCluster(clusterName, ca, healthPath string, healthCfg UpstreamHealthCheck, timeout time.Duration, outlierPercentage int32, addresses []*core.Address) *v2.Cluster {
 
 	tls := &auth.UpstreamTlsContext{}
 	if ca != "" {
@@ -277,7 +279,7 @@ func makeCluster(host, ca, healthPath string, healthCfg UpstreamHealthCheck, tim
 	} else {
 		tls = nil
 	}
-	healthChecks := makeHealthChecks(healthPath, healthCfg)
+	healthChecks := makeHealthChecks(clusterName, healthPath, healthCfg)
 
 	endpoints := make([]endpoint.LbEndpoint, len(addresses))
 
@@ -289,10 +291,10 @@ func makeCluster(host, ca, healthPath string, healthCfg UpstreamHealthCheck, tim
 
 	cluster := &v2.Cluster{
 		Type:           v2.Cluster_STRICT_DNS,
-		Name:           host,
+		Name:           clusterName,
 		ConnectTimeout: timeout,
 		LoadAssignment: &v2.ClusterLoadAssignment{
-			ClusterName: host,
+			ClusterName: clusterName,
 			Endpoints: []endpoint.LocalityLbEndpoints{
 				{LbEndpoints: endpoints},
 			},
