@@ -79,6 +79,7 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 
 type cluster struct {
 	Name            string
+	VirtualHost     string
 	HealthCheckPath string
 	Timeout         time.Duration
 	Hosts           []string
@@ -98,6 +99,10 @@ func (c *cluster) Equals(other *cluster) bool {
 	}
 
 	if c.Timeout != other.Timeout {
+		return false
+	}
+
+	if c.VirtualHost != other.VirtualHost {
 		return false
 	}
 
@@ -158,6 +163,7 @@ func newEnvoyIngress(host string) *envoyIngress {
 		},
 		cluster: &cluster{
 			Name:            clusterName,
+			VirtualHost:     host,
 			Hosts:           []string{},
 			Timeout:         (30 * time.Second),
 			HealthCheckPath: "",

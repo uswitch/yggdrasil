@@ -13,6 +13,10 @@ func TestVirtualHostEquality(t *testing.T) {
 	a := &virtualHost{Host: "foo"}
 	b := &virtualHost{Host: "foo"}
 
+	if a.Equals(nil) {
+		t.Error("virtual host is equal nix, expected not to be equal")
+	}
+
 	if !a.Equals(b) {
 		t.Error()
 	}
@@ -41,6 +45,10 @@ func TestClusterEquality(t *testing.T) {
 		t.Error()
 	}
 
+	if a.Equals(nil) {
+		t.Error("cluster is equals nil, expect not to be equal")
+	}
+
 	c := &cluster{Name: "bar", Hosts: []string{"host1", "host2"}}
 	if a.Equals(c) {
 		t.Error("clusters have different names, expected not to be equal")
@@ -64,6 +72,16 @@ func TestClusterEquality(t *testing.T) {
 	g := &cluster{Name: "foo", Hosts: []string{"host1", "host2"}, Timeout: (5 * time.Second)}
 	if a.Equals(g) {
 		t.Error("clusters with different timeout values should not be equal")
+	}
+
+	h := &cluster{Name: "foo", VirtualHost: "bar"}
+	if a.Equals(h) {
+		t.Error("cluster virtualHosts are different, shouldn't be equal")
+	}
+
+	i := &cluster{Name: "foo", HealthCheckPath: "bar"}
+	if a.Equals(i) {
+		t.Error("cluster virtualHosts are different, shouldn't be equal")
 	}
 }
 
@@ -163,6 +181,10 @@ func TestGeneratesForSingleIngress(t *testing.T) {
 
 	if c.VirtualHosts[0].UpstreamCluster != c.Clusters[0].Name {
 		t.Errorf("expected upstream cluster of vHost the same as the generated cluster, was %s and %s", c.VirtualHosts[0].UpstreamCluster, c.Clusters[0].Name)
+	}
+
+	if c.Clusters[0].VirtualHost != "foo.app.com" {
+		t.Errorf("expected upstream cluster vHost the same as the ingress vHost")
 	}
 }
 
