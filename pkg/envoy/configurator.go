@@ -192,7 +192,7 @@ func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []
 
 	for _, cluster := range config.Clusters {
 		addresses := makeAddresses(cluster.Hosts, c.upstreamPort)
-		cluster := makeCluster(cluster.Name, c.trustCA, cluster.HealthCheckPath, c.upstreamHealthCheck, cluster.Timeout, c.outlierPercentage, addresses)
+		cluster := makeCluster(*cluster, c.trustCA, c.upstreamHealthCheck, c.outlierPercentage, addresses)
 		clusters = append(clusters, cluster)
 	}
 

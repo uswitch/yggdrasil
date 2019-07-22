@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -240,7 +239,7 @@ func makeAddresses(addresses []string, upstreamPort uint32) []*core.Address {
 	return envoyAddresses
 }
 
-func makeHealthChecks(healthPath string, config UpstreamHealthCheck) []*core.HealthCheck {
+func makeHealthChecks(upstreamVHost string, healthPath string, config UpstreamHealthCheck) []*core.HealthCheck {
 	healthChecks := []*core.HealthCheck{}
 
 	if healthPath != "" {
@@ -251,6 +250,7 @@ func makeHealthChecks(healthPath string, config UpstreamHealthCheck) []*core.Hea
 			HealthyThreshold:   &types.UInt32Value{Value: config.HealthyThreshold},
 			HealthChecker: &core.HealthCheck_HttpHealthCheck_{
 				HttpHealthCheck: &core.HealthCheck_HttpHealthCheck{
+					Host: upstreamVHost,
 					Path: healthPath,
 				},
 			},
@@ -261,7 +261,7 @@ func makeHealthChecks(healthPath string, config UpstreamHealthCheck) []*core.Hea
 	return healthChecks
 }
 
-func makeCluster(host, ca, healthPath string, healthCfg UpstreamHealthCheck, timeout time.Duration, outlierPercentage int32, addresses []*core.Address) *v2.Cluster {
+func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPercentage int32, addresses []*core.Address) *v2.Cluster {
 
 	tls := &auth.UpstreamTlsContext{}
 	if ca != "" {
@@ -277,7 +277,7 @@ func makeCluster(host, ca, healthPath string, healthCfg UpstreamHealthCheck, tim
 	} else {
 		tls = nil
 	}
-	healthChecks := makeHealthChecks(healthPath, healthCfg)
+	healthChecks := makeHealthChecks(c.VirtualHost, c.HealthCheckPath, healthCfg)
 
 	endpoints := make([]endpoint.LbEndpoint, len(addresses))
 
@@ -289,10 +289,10 @@ func makeCluster(host, ca, healthPath string, healthCfg UpstreamHealthCheck, tim
 
 	cluster := &v2.Cluster{
 		Type:           v2.Cluster_STRICT_DNS,
-		Name:           host,
-		ConnectTimeout: timeout,
+		Name:           c.Name,
+		ConnectTimeout: c.Timeout,
 		LoadAssignment: &v2.ClusterLoadAssignment{
-			ClusterName: host,
+			ClusterName: c.Name,
 			Endpoints: []endpoint.LocalityLbEndpoints{
 				{LbEndpoints: endpoints},
 			},
