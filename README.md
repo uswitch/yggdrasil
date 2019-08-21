@@ -54,7 +54,7 @@ Where the envoy nodes are loadbalancing between each cluster for a given ingress
 Yggdrasil always configures a path on your Envoy nodes at `/yggdrasil/status`, this can be used to health check your envoy nodes, it will only return 200 if your nodes have started and been configured by Yggdrasil.
 
 ## Annotations
-Yggdrasil allows for some customization of the config per Ingress through the annotations below.
+Yggdrasil allows for some customisation of the route and cluster config per Ingress through the annotations below.
 
 | Name                                                         | type     |
 |--------------------------------------------------------------|----------|
@@ -62,7 +62,9 @@ Yggdrasil allows for some customization of the config per Ingress through the an
 | [yggdrasil.uswitch.com/timeout](#timeout)                    | duration |
 
 ### Health Check Path
-Specifies a path to configure a health check from envoy to. Envoy will not route to clusters that fail health checks.
+Specifies a path to configure a [HTTP health check](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/core/health_check.proto#core-healthcheck-httphealthcheck) to. Envoy will not route to clusters that fail health checks.
+
+* [core.HealthCheck.HttpHealthCheck.Path](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/core/health_check.proto#envoy-api-field-core-healthcheck-httphealthcheck-path)
 
 ### Timeout
 Allows for adjusting the timeout in envoy. Currently this will set the following timeouts to this value:
