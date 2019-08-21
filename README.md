@@ -73,6 +73,28 @@ Allows for adjusting the timeout in envoy. Currently this will set the following
 * [route.RouteAction_RetryPolicy.PerTryTimeout](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/route/route.proto#envoy-api-field-route-retrypolicy-per-try-timeout)
 * [cluster.ConnectTimeout](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/cds.proto#envoy-api-field-cluster-connect-timeout)
 
+### Example
+Below is an example of an ingress with some annotation specified
+
+```yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: example-com
+  namespace: default
+  annotations:
+    yggdrasil.uswitch.com/healthcheck-path: /healthz
+    yggdrasil.uswitch.com/timeout: 30s
+spec:
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - backend:
+          serviceName: example
+          servicePort: 80
+```
+
 ## Configuration
 Yggdrasil can be configured using a config file e.g:
 ```json
