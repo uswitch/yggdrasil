@@ -50,6 +50,9 @@ Your ingress set up then looks like this:
 
 Where the envoy nodes are loadbalancing between each cluster for a given ingress.
 
+### Health Check
+Yggdrasil always configures a path on your Envoy nodes at `/yggdrasil/status`, this can be used to health check your envoy nodes, it will only return 200 if your nodes have started and been configured by Yggdrasil.
+
 ## Annotations
 Yggdrasil allows for some customization of the config per Ingress through the annotations below.
 
