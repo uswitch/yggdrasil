@@ -198,7 +198,12 @@ func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
 				}
 
 				envoyIngress := envoyIngresses[rule.Host]
-				envoyIngress.addUpstream(j.Hostname)
+
+				if j.Hostname != "" {
+					envoyIngress.addUpstream(j.Hostname)
+				} else {
+					envoyIngress.addUpstream(j.IP)
+				}
 
 				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
 					envoyIngress.addHealthCheckPath(i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"])
