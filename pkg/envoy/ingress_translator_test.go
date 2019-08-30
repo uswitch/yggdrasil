@@ -244,6 +244,14 @@ func TestFilterNonMatchingIngresses(t *testing.T) {
 	}
 }
 
+func TestIngressWithIP(t *testing.T) {
+	ingress := newIngressIP("app.com", "127.0.0.1")
+	c := translateIngresses([]v1beta1.Ingress{ingress})
+	if c.Clusters[0].Hosts[0] != "127.0.0.1" {
+		t.Errorf("expected cluster host to be IP address, was %s", c.Clusters[0].Hosts[0])
+	}
+}
+
 func newIngress(specHost string, loadbalancerHost string) v1beta1.Ingress {
 	return v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -262,6 +270,30 @@ func newIngress(specHost string, loadbalancerHost string) v1beta1.Ingress {
 			LoadBalancer: v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
 					v1.LoadBalancerIngress{Hostname: loadbalancerHost},
+				},
+			},
+		},
+	}
+}
+
+func newIngressIP(specHost string, loadbalancerHost string) v1beta1.Ingress {
+	return v1beta1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class": "bar",
+			},
+		},
+		Spec: v1beta1.IngressSpec{
+			Rules: []v1beta1.IngressRule{
+				v1beta1.IngressRule{
+					Host: specHost,
+				},
+			},
+		},
+		Status: v1beta1.IngressStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					v1.LoadBalancerIngress{IP: loadbalancerHost},
 				},
 			},
 		},
