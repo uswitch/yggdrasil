@@ -1,0 +1,63 @@
+module github.com/uswitch/yggdrasil
+
+go 1.12
+
+require (
+	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
+	github.com/davecgh/go-spew v1.1.1
+	github.com/envoyproxy/go-control-plane v0.6.1
+	github.com/fsnotify/fsnotify v1.4.7
+	github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680
+	github.com/gogo/googleapis v1.1.0
+	github.com/gogo/protobuf v1.1.1
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/protobuf v1.2.0
+	github.com/google/btree v0.0.0-20160524151835-7d79101e329e
+	github.com/google/gofuzz v0.0.0-20161122191042-44d81051d367
+	github.com/googleapis/gnostic v0.0.0-20170729233727-0c5108395e2d
+	github.com/gregjones/httpcache v0.0.0-20170728041850-787624de3eb7
+	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/hashicorp/golang-lru v0.0.0-20160207214719-a0d98a5f2880
+	github.com/hashicorp/hcl v1.0.0
+	github.com/imdario/mergo v0.3.5
+	github.com/inconshreveable/mousetrap v1.0.0
+	github.com/json-iterator/go v0.0.0-20180612202835-f2b4162afba3
+	github.com/konsorten/go-windows-terminal-sequences v1.0.1
+	github.com/kr/fs v0.0.0-20131111012553-2788f0dbd169
+	github.com/lyft/protoc-gen-validate v0.0.0-20180626203901-f9d2b11e4414
+	github.com/magiconair/properties v1.8.0
+	github.com/matttproud/golang_protobuf_extensions v1.0.1
+	github.com/mitchellh/mapstructure v1.1.2
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
+	github.com/pelletier/go-toml v1.2.0
+	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c
+	github.com/peterbourgon/diskv v2.0.1+incompatible
+	github.com/pkg/errors v0.8.0
+	github.com/pkg/sftp v0.0.0-20160930220758-4d0e916071f6
+	github.com/prometheus/client_golang v0.9.0
+	github.com/prometheus/client_model v0.0.0-20150212101744-fa8ad6fec335
+	github.com/prometheus/common v0.0.0-20170427095455-13ba4ddd0caa
+	github.com/prometheus/procfs v0.0.0-20170519190837-65c1f6f8f0fc
+	github.com/sirupsen/logrus v1.1.1
+	github.com/spf13/afero v1.1.2
+	github.com/spf13/cast v1.3.0
+	github.com/spf13/cobra v0.0.3
+	github.com/spf13/jwalterweatherman v1.1.0
+	github.com/spf13/pflag v1.0.2
+	github.com/spf13/viper v1.2.1
+	golang.org/x/crypto v0.0.0-20180904163835-0709b304e793
+	golang.org/x/net v0.0.0-20180826012351-8a410e7b638d
+	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
+	golang.org/x/sys v0.0.0-20180906133057-8cf3aee42992
+	golang.org/x/text v0.3.0
+	golang.org/x/time v0.0.0-20161028155119-f51c12702a4d
+	google.golang.org/appengine v1.3.0
+	google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8
+	google.golang.org/grpc v1.16.0
+	gopkg.in/inf.v0 v0.9.0
+	gopkg.in/yaml.v2 v2.2.1
+	k8s.io/api v0.0.0-20181004124137-fd83cbc87e76
+	k8s.io/apimachinery v0.0.0-20180913025736-6dd46049f395
+	k8s.io/client-go v9.0.0+incompatible
+)

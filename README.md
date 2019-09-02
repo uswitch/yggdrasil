@@ -1,8 +1,8 @@
 # Yggdrasil
-
 Yggdrasil is an Envoy control plane that configures listeners and clusters based off Kubernetes ingresses from multiple Kube Clusters. This allows you to have an envoy cluster acting as a mutli-cluster loadbalancer for Kubernetes. This was something we needed as we wanted our apps to be highly available in the event of a cluster outage but did not want the solution to live inside of Kubernetes itself.
 
-`Note:` Currently we support version 1.10.0 of Envoy.
+`Note:` Currently we support version 1.10.0 of Envoy.</br>
+`Note:` Yggdrasil now uses [Go modules](https://github.com/golang/go/wiki/Modules) to handle dependencies.
 
 ## Usage
 Yggdrasil will watch all Ingresses in each Kubernetes Cluster that you give it via the Kubeconfig flag. Any ingresses that match any of the ingress classes that you have specified will have a listener and cluster created that listens on the same Host as the Host defined in the Ingress object. If you have multiple clusters Yggdrasil will create a cluster address for each Kubernetes cluster your Ingress is in, the address is the address of the ingress loadbalancer.
@@ -123,8 +123,7 @@ Yggdrasil can be configured using a config file e.g:
 }
 ```
 
-The list of certificates will be loaded by Yggdrasil and served to the Envoy nodes by inlining the key pairs. These will then be used to
-group the ingress into different filter chains, split using hosts.
+The list of certificates will be loaded by Yggdrasil and served to the Envoy nodes by inlining the key pairs. These will then be used to group the ingress into different filter chains, split using hosts.
 
 `nodeName` is the same `node-name` that you start your envoy nodes with.
 The `ingressClasses` is a list of ingress classes that yggdrasil will watch for.
