@@ -54,10 +54,10 @@ Hello world!
 ```
 
 ## Configure Yggdrasil
-With our ingress working correctly, we can now setup Yggdrasil. Pull the latest development docker image with the following command:
+With our ingress working correctly, we can now setup Yggdrasil. Pull the following docker image (this version added support for IP address ingresses as seen in GCP)
 
 ```console
-$ docker pull quay.io/uswitch/yggdrasil:devel
+$ docker pull quay.io/uswitch/yggdrasil:603485bbf43b90c5fb42b743a01538ec8a4e988a
 ```
 
 Next, we will setup a config file for Yggdrasil so we can retrieve ingress details from our Kubernetes cluster's API. Consider the following Yggdrasil config:
@@ -84,10 +84,48 @@ Where:
   * `apiServer` is the address of the Kube api server
   * `ca` is the Kube API CA certificate
 
+#### Kubernetes service account for Yggdrasil
+
+The `token` mentioned above must be for a service account which is able to list and get ingress resources in the Kube cluster. We can create a service account specifically for Yggdrasil with the below ClusterRole and matching ClusterRoleBinding.
+
+Create the service account:
+```console
+$ kubectl create serviceaccount yggdrasil-sa
+```
+
+Apply the following manifest for the ClusterRole:
+```yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: '*'
+  name: yggdrasil-read-only
+rules:
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+```
+
+And apply the following ClusterRoleBinding:
+```yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: yggdrasil-sa-binding
+subjects:
+- kind: ServiceAccount
+  name: yggdrasil-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: yggdrasil-read-only
+  apiGroup: rbac.authorization.k8s.io
+```
+
 The Yggdrasil docker container can now be started - make sure to mount the config file you have created, as well as the Kube API CA cert:
 
 ```console
-$ docker run -d -v /path/to/config.yaml:/config.yaml -v /path/to/ca.crt:/ca.crt quay.io/uswitch/yggdrasil:devel --config=config.yaml --debug --upstream-port=80
+$ docker run -d -v /path/to/config.yaml:/config.yaml -v /path/to/ca.crt:/ca.crt quay.io/uswitch/yggdrasil:603485bbf43b90c5fb42b743a01538ec8a4e988a --config=config.yaml --debug --upstream-port=80
 ```
 
 By default, Yggdrasil will use an upstream ingress port of 443 (HTTPS), as we are just running an HTTP ingress we will use the `--upstream-port=80` flag as seen above.
@@ -138,10 +176,12 @@ Where `yggdrasil` is the IP address of the Yggdrasil docker container. Save the 
 Run the envoy docker container with the following command, making sure to mount the minimal config file that you've created:
 
 ```console
-$ docker run -v /path/to/envoy.yaml:/etc/envoy/envoy.yaml -p 10000:10000 -d envoyproxy/envoy-alpine-debug:v1.10.0 --service-node envoy-node --service-cluster envoy-node --config-path /etc/envoy/envoy.yaml
+$ docker run -w /var/log/envoy/ -v /path/to/envoy.yaml:/etc/envoy/envoy.yaml -p 10000:10000 -d envoyproxy/envoy-alpine-debug:v1.10.0 --service-node envoy-node --service-cluster envoy-node --config-path /etc/envoy/envoy.yaml
 ```
 
-We forward port 10000 of the container to port 10000 of the docker host with the above command, so we can easily cURL the host and verify that envoy is load balancing correctly. You can also forward the admin listener port `9901` to access envoy's admin web UI from the docker host, but this is not essential for the example to work.
+The working directory for the container is set to `/var/log/envoy/` in order to create it at runtime, as Yggdrasil will configure envoy to write access logs to this directory.
+
+We also forward port 10000 of the container to port 10000 of the docker host with the above command, so we can easily cURL the host and verify that envoy is load balancing correctly. You can forward the admin listener port `9901` as well in order to access envoy's admin web UI from the docker host, but this is not essential for the example to work.
 
 Envoy will take a short while to start and retrieve its config, once this is complete we can cURL `localhost:10000` and check that we can reach our web service:
 
@@ -157,26 +197,4 @@ $ docker logs -f envoy_container_id
 [2019-09-02 09:56:06.207][1][info][main] [source/server/server.cc:462] all clusters initialized. initializing init manager
 [2019-09-02 09:56:06.212][1][info][upstream] [source/server/lds_api.cc:74] lds: add/update listener 'listener_0'
 [2019-09-02 09:56:06.212][1][info][config] [source/server/listener_manager_impl.cc:1006] all dependencies initialized. starting workers
-```
-
-### Known issues
-When running the envoy container, if you encounter the following error in the container's logs:
-```console
-$ docker logs -f envoy_container_id
-[2019-09-02 09:36:58.624][1][warning][config] [bazel-out/k8-opt/bin/source/common/config/_virtual_includes/grpc_mux_subscription_lib/common/config/grpc_mux_subscription_impl.h:77] gRPC config for type.googleapis.com/envoy.api.v2.Listener rejected: Error adding/updating listener(s) listener_0: unable to open file '/var/log/envoy/access.log': No such file or directory
-```
-
-You will need to exec into the container and create the missing `/var/log/envoy/` directory:
-```console
-$ docker exec -it envoy_container_id /bin/sh
-# mkdir -p /var/log/envoy/
-# exit
-```
-
-You should then see the cluster listener(s) update and envoy will begin to load balance correctly:
-
-```console
-$ docker logs -f envoy_container_id
-...
-[2019-09-02 09:40:39.073][1][info][upstream] [source/server/lds_api.cc:74] lds: add/update listener 'listener_0'
 ```
