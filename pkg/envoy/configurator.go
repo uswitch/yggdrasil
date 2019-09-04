@@ -59,7 +59,7 @@ func (c *KubernetesConfigurator) Generate(ingresses []v1beta1.Ingress) cache.Sna
 	c.Lock()
 	defer c.Unlock()
 
-	config := translateIngresses(classFilter(ingresses, c.ingressClasses))
+	config := translateIngresses(validIngressFilter(classFilter(ingresses, c.ingressClasses)))
 
 	vmatch, cmatch := config.equals(c.previousConfig)
 

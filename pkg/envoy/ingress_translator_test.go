@@ -252,6 +252,36 @@ func TestIngressWithIP(t *testing.T) {
 	}
 }
 
+func TestIngressFilterWithValidConfig(t *testing.T) {
+	ingresses := []v1beta1.Ingress{
+		newIngress("app.com", "foo.com"),
+	}
+	matchingIngresses := validIngressFilter(ingresses)
+	if len(matchingIngresses) != 1 {
+		t.Errorf("expected one ingress to be valid, got %d ingresses", len(matchingIngresses))
+	}
+}
+
+func TestIngressFilterWithNoHost(t *testing.T) {
+	ingresses := []v1beta1.Ingress{
+		newIngress("", "foo.com"),
+	}
+	matchingIngresses := validIngressFilter(ingresses)
+	if len(matchingIngresses) != 0 {
+		t.Errorf("expected no ingress to be valid without a hostname or ip, got %d ingresses", len(matchingIngresses))
+	}
+}
+
+func TestIngressFilterWithNoLoadBalancerHostName(t *testing.T) {
+	ingresses := []v1beta1.Ingress{
+		newIngress("app.com", ""),
+	}
+	matchingIngresses := validIngressFilter(ingresses)
+	if len(matchingIngresses) != 0 {
+		t.Errorf("expected no ingress to be valid without a hostname, got %d ingresses", len(matchingIngresses))
+	}
+}
+
 func newIngress(specHost string, loadbalancerHost string) v1beta1.Ingress {
 	return v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{

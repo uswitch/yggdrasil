@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
 )
 
@@ -145,6 +146,29 @@ func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.I
 	}
 	matchingIngresses.Set(float64(len(is)))
 	return is
+}
+
+func validIngressFilter(ingresses []v1beta1.Ingress) []v1beta1.Ingress {
+	vi := make([]v1beta1.Ingress, 0)
+
+	Ingress:
+		for _, i := range ingresses {
+			for _, j := range i.Status.LoadBalancer.Ingress {
+				if j.Hostname != "" || j.IP != "" {
+					for _, k := range i.Spec.Rules {
+						if k.Host != "" {
+							vi = append(vi, i)
+							continue Ingress
+						}
+					}
+					logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
+					continue Ingress
+				}
+			}
+			logrus.Debugf("no hostname or ip for loadbalancer found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
+		}
+
+	return vi
 }
 
 type envoyIngress struct {
