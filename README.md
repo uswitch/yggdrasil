@@ -7,7 +7,7 @@ Yggdrasil is an Envoy control plane that configures listeners and clusters based
 ## Usage
 Yggdrasil will watch all Ingresses in each Kubernetes Cluster that you give it via the Kubeconfig flag. Any ingresses that match any of the ingress classes that you have specified will have a listener and cluster created that listens on the same Host as the Host defined in the Ingress object. If you have multiple clusters Yggdrasil will create a cluster address for each Kubernetes cluster your Ingress is in, the address is the address of the ingress loadbalancer.
 
-[Joseph Irving](https://github.com/Joseph-Irving) has published a great [blog post](https://medium.com/uswitch-labs/multi-cluster-kubernetes-load-balancing-in-aws-with-yggdrasil-c1583ea7d78f) which describes our need for and use of Yggdrasil at uSwitch.
+[Joseph Irving](https://github.com/Joseph-Irving) has published a [blog post](https://medium.com/uswitch-labs/multi-cluster-kubernetes-load-balancing-in-aws-with-yggdrasil-c1583ea7d78f) which describes our need for and use of Yggdrasil at uSwitch.
 
 ## Setup
 Please see the [Getting Started](/docs/GETTINGSTARTED.md) guide for a walkthrough of setting up a simple HTTP service with Yggdrasil and envoy.

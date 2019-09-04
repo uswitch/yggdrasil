@@ -57,7 +57,7 @@ Hello world!
 With our ingress working correctly, we can now setup Yggdrasil. Pull the following docker image (this version added support for IP address ingresses as seen in GCP)
 
 ```console
-$ docker pull quay.io/uswitch/yggdrasil:603485bbf43b90c5fb42b743a01538ec8a4e988a
+$ docker pull quay.io/uswitch/yggdrasil:v0.11.0
 ```
 
 Next, we will setup a config file for Yggdrasil so we can retrieve ingress details from our Kubernetes cluster's API. Consider the following Yggdrasil config:
@@ -168,10 +168,10 @@ static_resources:
     type: STATIC
     lb_policy: ROUND_ROBIN
     http2_protocol_options: {}
-    hosts: [{ socket_address: { address: yggdrasil, port_value: 8080 }}]
+    hosts: [{ socket_address: { address: <yggdrasil-container-ip-address>, port_value: 8080 }}]
 ```
 
-Where `yggdrasil` is the IP address of the Yggdrasil docker container. Save the file as `envoy.yaml`.
+Where `<yggdrasil-container-ip-address>` is the IP address of the Yggdrasil docker container. Save the file as `envoy.yaml`.
 
 Run the envoy docker container with the following command, making sure to mount the minimal config file that you've created:
 
