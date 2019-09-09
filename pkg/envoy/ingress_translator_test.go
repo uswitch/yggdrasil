@@ -252,9 +252,19 @@ func TestIngressWithIP(t *testing.T) {
 	}
 }
 
-func TestIngressFilterWithValidConfig(t *testing.T) {
+func TestIngressFilterWithValidConfigWithHostname(t *testing.T) {
 	ingresses := []v1beta1.Ingress{
 		newIngress("app.com", "foo.com"),
+	}
+	matchingIngresses := validIngressFilter(ingresses)
+	if len(matchingIngresses) != 1 {
+		t.Errorf("expected one ingress to be valid, got %d ingresses", len(matchingIngresses))
+	}
+}
+
+func TestIngressFilterWithValidConfigWithIP(t *testing.T) {
+	ingresses := []v1beta1.Ingress{
+		newIngressIP("app.com", "127.0.0.1"),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 1 {
