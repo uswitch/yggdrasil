@@ -88,6 +88,8 @@ Where:
 
 The `token` mentioned above must be for a service account which is able to list and get ingress resources in the Kube cluster. We can create a service account specifically for Yggdrasil with the below ClusterRole and matching ClusterRoleBinding.
 
+`Note:` Please see the [Kubernetes docs](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens) for greater detail on creating and using service account tokens.
+
 Create the service account:
 ```console
 $ kubectl create serviceaccount yggdrasil-sa
@@ -125,7 +127,7 @@ roleRef:
 The Yggdrasil docker container can now be started - make sure to mount the config file you have created, as well as the Kube API CA cert:
 
 ```console
-$ docker run -d -v /path/to/config.yaml:/config.yaml -v /path/to/ca.crt:/ca.crt quay.io/uswitch/yggdrasil:603485bbf43b90c5fb42b743a01538ec8a4e988a --config=config.yaml --debug --upstream-port=80
+$ docker run -d -v /path/to/config.yaml:/config.yaml -v /path/to/ca.crt:/ca.crt quay.io/uswitch/yggdrasil:v0.11.0 --config=config.yaml --debug --upstream-port=80
 ```
 
 By default, Yggdrasil will use an upstream ingress port of 443 (HTTPS), as we are just running an HTTP ingress we will use the `--upstream-port=80` flag as seen above.
