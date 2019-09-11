@@ -86,9 +86,9 @@ Where:
 
 #### Kubernetes service account for Yggdrasil
 
-The `token` mentioned above must be for a service account which is able to list and get ingress resources in the Kube cluster. We can create a service account specifically for Yggdrasil with the below ClusterRole and matching ClusterRoleBinding.
+`Note:` Once the service account has been created, you will need to retrieve its token from the corresponding Kube secret for use by Yggdrasil in the `token` field mentioned above. Please see the [Kubernetes docs](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens) for greater detail on creating and using service account tokens.
 
-`Note:` Please see the [Kubernetes docs](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#service-account-tokens) for greater detail on creating and using service account tokens.
+We can create a service account specifically for Yggdrasil that is able to list, watch, and get ingress resources with the below ClusterRole and matching ClusterRoleBinding.
 
 Create the service account:
 ```console
