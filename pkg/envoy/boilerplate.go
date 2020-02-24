@@ -112,19 +112,19 @@ func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectio
 		AccessLogFormat: &fal.FileAccessLog_Format{Format: jsonFormat},
 	})
 	if err != nil {
-		log.Fatalf("failed to convert: %s", err)
+		log.Fatalf("failed to convert access log proto message to struct: %s", err)
 	}
 	anyAccessLogConfig, err := types.MarshalAny(accessLogConfig)
 	if err != nil {
-		log.Fatalf("failed to marshal: %s", err)
+		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)
 	}
 	healthConfig, err := util.MessageToStruct(makeHealthConfig())
 	if err != nil {
-		log.Fatalf("failed to convert: %s", err)
+		log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
 	}
 	anyHealthConfig, err := types.MarshalAny(healthConfig)
 	if err != nil {
-		log.Fatalf("failed to marshal: %s", err)
+		log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 	}
 	return &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
@@ -161,11 +161,11 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 	httpConnectionManager := makeConnectionManager(virtualHosts)
 	httpConfig, err := util.MessageToStruct(httpConnectionManager)
 	if err != nil {
-		return listener.FilterChain{}, fmt.Errorf("failed to convert: %s", err)
+		return listener.FilterChain{}, fmt.Errorf("failed to convert virtualHost to envoy control plane struct: %s", err)
 	}
 	anyHttpConfig, err := types.MarshalAny(httpConfig)
 	if err != nil {
-		log.Fatalf("failed to marshal: %s", err)
+		return listener.FilterChain{}, fmt.Errorf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
 
 	tls := &auth.DownstreamTlsContext{}

@@ -151,7 +151,7 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 	}
 	anyHttpConfig, err := types.MarshalAny(httpConfig)
 	if err != nil {
-		log.Fatalf("failed to marshal: %s", err)
+		log.Fatalf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
 	return []*listener.FilterChain{&listener.FilterChain{
 		Filters: []*listener.Filter{&listener.Filter{
