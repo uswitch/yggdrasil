@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
 )
@@ -72,11 +71,6 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 	if other == nil {
 		return false
 	}
-
-	return v.Host == other.Host &&
-		cmp.Equal(v.Timeout, other.Timeout) &&
-		v.UpstreamCluster == other.UpstreamCluster &&
-		cmp.Equal(v.PerTryTimeout, other.PerTryTimeout)
 
 	return v.Host == other.Host &&
 		v.Timeout == other.Timeout &&

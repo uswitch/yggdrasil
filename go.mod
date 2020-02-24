@@ -5,14 +5,16 @@ go 1.12
 require (
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 	github.com/davecgh/go-spew v1.1.1
-	github.com/envoyproxy/go-control-plane v0.6.1
+	github.com/envoyproxy/go-control-plane v0.9.4
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680
 	github.com/gogo/googleapis v1.1.0
-	github.com/gogo/protobuf v1.1.1
+	github.com/gogo/protobuf v1.2.2-0.20190730201129-28a6bbf47e48
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/protobuf v1.2.0
+	github.com/golang/lint v0.0.0-20180702182130-06c8688daad7 // indirect
+	github.com/golang/protobuf v1.3.2
 	github.com/google/btree v0.0.0-20160524151835-7d79101e329e
+	github.com/google/go-cmp v0.4.0
 	github.com/google/gofuzz v0.0.0-20161122191042-44d81051d367
 	github.com/googleapis/gnostic v0.0.0-20170729233727-0c5108395e2d
 	github.com/gregjones/httpcache v0.0.0-20170728041850-787624de3eb7
@@ -36,7 +38,7 @@ require (
 	github.com/pkg/errors v0.8.0
 	github.com/pkg/sftp v0.0.0-20160930220758-4d0e916071f6
 	github.com/prometheus/client_golang v0.9.0
-	github.com/prometheus/client_model v0.0.0-20150212101744-fa8ad6fec335
+	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.0.0-20170427095455-13ba4ddd0caa
 	github.com/prometheus/procfs v0.0.0-20170519190837-65c1f6f8f0fc
 	github.com/sirupsen/logrus v1.1.1
@@ -46,15 +48,15 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/pflag v1.0.2
 	github.com/spf13/viper v1.2.1
-	golang.org/x/crypto v0.0.0-20180904163835-0709b304e793
-	golang.org/x/net v0.0.0-20180826012351-8a410e7b638d
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
 	golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be
-	golang.org/x/sys v0.0.0-20180906133057-8cf3aee42992
-	golang.org/x/text v0.3.0
+	golang.org/x/sys v0.0.0-20190508220229-2d0786266e9c
+	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20161028155119-f51c12702a4d
-	google.golang.org/appengine v1.3.0
-	google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8
-	google.golang.org/grpc v1.16.0
+	google.golang.org/appengine v1.4.0
+	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
+	google.golang.org/grpc v1.25.1
 	gopkg.in/inf.v0 v0.9.0
 	gopkg.in/yaml.v2 v2.2.1
 	k8s.io/api v0.0.0-20181004124137-fd83cbc87e76
