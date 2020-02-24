@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/ptypes/duration"
 )
 
 func TestMakeHealthChecksEmptyPath(t *testing.T) {
@@ -28,16 +29,19 @@ func TestMakeHealthChecksValidPath(t *testing.T) {
 	timeout := healthChecks[0].Timeout
 	interval := healthChecks[0].Interval
 
+	cfgTimeout := &duration.Duration{Seconds: int64(cfg.Timeout.Seconds())}
+	cfgInterval := &duration.Duration{Seconds: int64(cfg.Interval.Seconds())}
+
 	if len(healthChecks) != 1 {
 		t.Error("Expected healthcheck to exist")
 	}
 
-	if cfg.Timeout != *timeout {
-		t.Errorf("Expected timeout to be %s, but got %s", cfg.Timeout, timeout)
+	if cfgTimeout.Seconds != timeout.Seconds {
+		t.Errorf("Expected timeout to be %s, but got %s", cfgTimeout, timeout)
 	}
 
-	if cfg.Interval != *interval {
-		t.Errorf("Expected interval to be %s, but got %s", cfg.Interval, interval)
+	if cfgInterval.Seconds != interval.Seconds {
+		t.Errorf("Expected interval to be %s, but got %s", cfgInterval, interval)
 	}
 
 	httpCheck := healthChecks[0].HealthChecker.(*core.HealthCheck_HttpHealthCheck_)
