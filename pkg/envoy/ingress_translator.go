@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
 )
@@ -71,6 +72,11 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 	if other == nil {
 		return false
 	}
+
+	return v.Host == other.Host &&
+		cmp.Equal(v.Timeout, other.Timeout) &&
+		v.UpstreamCluster == other.UpstreamCluster &&
+		cmp.Equal(v.PerTryTimeout, other.PerTryTimeout)
 
 	return v.Host == other.Host &&
 		v.Timeout == other.Timeout &&
@@ -151,22 +157,22 @@ func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.I
 func validIngressFilter(ingresses []v1beta1.Ingress) []v1beta1.Ingress {
 	vi := make([]v1beta1.Ingress, 0)
 
-	Ingress:
-		for _, i := range ingresses {
-			for _, j := range i.Status.LoadBalancer.Ingress {
-				if j.Hostname != "" || j.IP != "" {
-					for _, k := range i.Spec.Rules {
-						if k.Host != "" {
-							vi = append(vi, i)
-							continue Ingress
-						}
+Ingress:
+	for _, i := range ingresses {
+		for _, j := range i.Status.LoadBalancer.Ingress {
+			if j.Hostname != "" || j.IP != "" {
+				for _, k := range i.Spec.Rules {
+					if k.Host != "" {
+						vi = append(vi, i)
+						continue Ingress
 					}
-					logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
-					continue Ingress
 				}
+				logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
+				continue Ingress
 			}
-			logrus.Debugf("no hostname or ip for loadbalancer found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
 		}
+		logrus.Debugf("no hostname or ip for loadbalancer found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
+	}
 
 	return vi
 }
