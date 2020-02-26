@@ -9,10 +9,9 @@ import (
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
-
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"k8s.io/api/extensions/v1beta1"
 )
 

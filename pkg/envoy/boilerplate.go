@@ -18,6 +18,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
+	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 )
@@ -182,6 +183,11 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 		},
 	}
 
+	anyTls, err := types.MarshalAny(tls)
+	if err != nil {
+		return listener.FilterChain{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
+	}
+
 	filterChainMatch := &listener.FilterChainMatch{}
 
 	hosts := []string{}
@@ -197,13 +203,16 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 	}
 
 	return listener.FilterChain{
-		TlsContext:       tls,
 		FilterChainMatch: filterChainMatch,
 		Filters: []*listener.Filter{
 			&listener.Filter{
 				Name:       "envoy.http_connection_manager",
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
 			},
+		},
+		TransportSocket: &core.TransportSocket{
+			Name:       "tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: anyTls},
 		},
 	}, nil
 }
@@ -291,6 +300,17 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	} else {
 		tls = nil
 	}
+
+	var err error
+	var anyTls *any.Any
+
+	if tls != nil {
+		anyTls, err = types.MarshalAny(tls)
+		if err != nil {
+			log.Printf("Error marhsalling cluster TLS config: %s", err)
+		}
+	}
+
 	healthChecks := makeHealthChecks(c.VirtualHost, c.HealthCheckPath, healthCfg)
 
 	endpoints := make([]*endpoint.LbEndpoint, len(addresses))
@@ -311,7 +331,6 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 				{LbEndpoints: endpoints},
 			},
 		},
-		TlsContext:   tls,
 		HealthChecks: healthChecks,
 	}
 	if outlierPercentage >= 0 {
@@ -319,5 +338,12 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 			MaxEjectionPercent: &wrappers.UInt32Value{Value: uint32(outlierPercentage)},
 		}
 	}
+	if anyTls != nil {
+		cluster.TransportSocket = &core.TransportSocket{
+			Name:       "tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: anyTls},
+		}
+	}
+
 	return cluster
 }
