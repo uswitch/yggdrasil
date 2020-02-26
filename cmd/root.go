@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	"github.com/envoyproxy/go-control-plane/pkg/server"
 	log "github.com/sirupsen/logrus"
@@ -196,7 +196,7 @@ func main(*cobra.Command, []string) error {
 	go snapshotter.Run(ctx)
 	lister.Run(ctx)
 
-	envoyServer := server.NewServer(envoyCache, &callbacks{})
+	envoyServer := server.NewServer(ctx, envoyCache, &callbacks{})
 	go runEnvoyServer(envoyServer, viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
 
 	<-stopCh

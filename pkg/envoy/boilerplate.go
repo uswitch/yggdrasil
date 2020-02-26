@@ -5,19 +5,22 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	v2cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	fal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	al "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	hcfg "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
+	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
+	types "github.com/golang/protobuf/ptypes"
+	any "github.com/golang/protobuf/ptypes/any"
+	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
 var (
@@ -52,23 +55,23 @@ func init() {
 	jsonFormat = string(b) + "\n"
 }
 
-func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) route.VirtualHost {
+func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.VirtualHost {
 
 	action := &route.Route_Route{
 		Route: &route.RouteAction{
-			Timeout: &vhost.Timeout,
+			Timeout: &duration.Duration{Seconds: int64(vhost.Timeout.Seconds())},
 			ClusterSpecifier: &route.RouteAction_Cluster{
 				Cluster: vhost.UpstreamCluster,
 			},
-			RetryPolicy: &route.RouteAction_RetryPolicy{
+			RetryPolicy: &route.RetryPolicy{
 				RetryOn:       "5xx",
-				PerTryTimeout: &vhost.PerTryTimeout,
+				PerTryTimeout: &duration.Duration{Seconds: int64(vhost.PerTryTimeout.Seconds())},
 			},
 		},
 	}
 
 	if reselectionAttempts >= 0 {
-		action.Route.RetryPolicy.RetryHostPredicate = []*route.RouteAction_RetryPolicy_RetryHostPredicate{
+		action.Route.RetryPolicy.RetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
 			{
 				Name: "envoy.retry_host_predicates.previous_hosts",
 			},
@@ -78,8 +81,8 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) route.Virtua
 	virtualHost := route.VirtualHost{
 		Name:    "local_service",
 		Domains: []string{vhost.Host},
-		Routes: []route.Route{route.Route{
-			Match: route.RouteMatch{
+		Routes: []*route.Route{&route.Route{
+			Match: &route.RouteMatch{
 				PathSpecifier: &route.RouteMatch_Prefix{
 					Prefix: "/",
 				},
@@ -87,12 +90,12 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) route.Virtua
 			Action: action,
 		}},
 	}
-	return virtualHost
+	return &virtualHost
 }
 
 func makeHealthConfig() *hcfg.HealthCheck {
 	return &hcfg.HealthCheck{
-		PassThroughMode: &types.BoolValue{Value: false},
+		PassThroughMode: &wrappers.BoolValue{Value: false},
 		Headers: []*route.HeaderMatcher{
 			&route.HeaderMatcher{
 				Name: ":path",
@@ -104,25 +107,33 @@ func makeHealthConfig() *hcfg.HealthCheck {
 	}
 }
 
-func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnectionManager {
+func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
 	accessLogConfig, err := util.MessageToStruct(&fal.FileAccessLog{
-		Path:   "/var/log/envoy/access.log",
-		Format: jsonFormat,
+		Path:            "/var/log/envoy/access.log",
+		AccessLogFormat: &fal.FileAccessLog_Format{Format: jsonFormat},
 	})
 	if err != nil {
-		log.Fatalf("failed to convert: %s", err)
+		log.Fatalf("failed to convert access log proto message to struct: %s", err)
+	}
+	anyAccessLogConfig, err := types.MarshalAny(accessLogConfig)
+	if err != nil {
+		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)
 	}
 	healthConfig, err := util.MessageToStruct(makeHealthConfig())
 	if err != nil {
-		log.Fatalf("failed to convert: %s", err)
+		log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
+	}
+	anyHealthConfig, err := types.MarshalAny(healthConfig)
+	if err != nil {
+		log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 	}
 	return &hcm.HttpConnectionManager{
-		CodecType:  hcm.AUTO,
+		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "ingress_http",
 		HttpFilters: []*hcm.HttpFilter{
 			&hcm.HttpFilter{
-				Name:   "envoy.health_check",
-				Config: healthConfig,
+				Name:       "envoy.health_check",
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyHealthConfig},
 			}, &hcm.HttpFilter{
 				Name: "envoy.router",
 			}},
@@ -137,23 +148,25 @@ func makeConnectionManager(virtualHosts []route.VirtualHost) *hcm.HttpConnection
 				VirtualHosts: virtualHosts,
 			},
 		},
-		Tracing: &hcm.HttpConnectionManager_Tracing{
-			OperationName: hcm.EGRESS,
-		},
+		Tracing: &hcm.HttpConnectionManager_Tracing{},
 		AccessLog: []*al.AccessLog{
 			{
-				Name:   "envoy.file_access_log",
-				Config: accessLogConfig,
+				Name:       "envoy.file_access_log",
+				ConfigType: &al.AccessLog_TypedConfig{TypedConfig: anyAccessLogConfig},
 			},
 		},
 	}
 }
 
-func makeFilterChain(certificate Certificate, virtualHosts []route.VirtualHost) (listener.FilterChain, error) {
+func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
 	httpConnectionManager := makeConnectionManager(virtualHosts)
 	httpConfig, err := util.MessageToStruct(httpConnectionManager)
 	if err != nil {
-		return listener.FilterChain{}, fmt.Errorf("failed to convert: %s", err)
+		return listener.FilterChain{}, fmt.Errorf("failed to convert virtualHost to envoy control plane struct: %s", err)
+	}
+	anyHttpConfig, err := types.MarshalAny(httpConfig)
+	if err != nil {
+		return listener.FilterChain{}, fmt.Errorf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
 
 	tls := &auth.DownstreamTlsContext{}
@@ -168,6 +181,11 @@ func makeFilterChain(certificate Certificate, virtualHosts []route.VirtualHost) 
 				},
 			},
 		},
+	}
+
+	anyTls, err := types.MarshalAny(tls)
+	if err != nil {
+		return listener.FilterChain{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
 	}
 
 	filterChainMatch := &listener.FilterChainMatch{}
@@ -185,22 +203,25 @@ func makeFilterChain(certificate Certificate, virtualHosts []route.VirtualHost) 
 	}
 
 	return listener.FilterChain{
-		TlsContext:       tls,
 		FilterChainMatch: filterChainMatch,
-		Filters: []listener.Filter{
-			listener.Filter{
-				Name:   "envoy.http_connection_manager",
-				Config: httpConfig,
+		Filters: []*listener.Filter{
+			&listener.Filter{
+				Name:       "envoy.http_connection_manager",
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
 			},
+		},
+		TransportSocket: &core.TransportSocket{
+			Name:       "envoy.transport_sockets.tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: anyTls},
 		},
 	}, nil
 }
 
-func makeListener(filterChains []listener.FilterChain, envoyListenPort uint32) *v2.Listener {
+func makeListener(filterChains []*listener.FilterChain, envoyListenPort uint32) *v2.Listener {
 
 	listener := v2.Listener{
 		Name: "listener_0",
-		Address: core.Address{
+		Address: &core.Address{
 			Address: &core.Address_SocketAddress{
 				SocketAddress: &core.SocketAddress{
 					Address: "0.0.0.0",
@@ -210,10 +231,12 @@ func makeListener(filterChains []listener.FilterChain, envoyListenPort uint32) *
 				},
 			},
 		},
-		ListenerFilters: []listener.ListenerFilter{
+		ListenerFilters: []*listener.ListenerFilter{
 			{Name: "envoy.listener.tls_inspector"},
 		},
 		FilterChains: filterChains,
+		// Setting the TrafficDirection here for tracing
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 
 	return &listener
@@ -244,10 +267,10 @@ func makeHealthChecks(upstreamVHost string, healthPath string, config UpstreamHe
 
 	if healthPath != "" {
 		check := &core.HealthCheck{
-			Timeout:            &config.Timeout,
-			Interval:           &config.Interval,
-			UnhealthyThreshold: &types.UInt32Value{Value: config.UnhealthyThreshold},
-			HealthyThreshold:   &types.UInt32Value{Value: config.HealthyThreshold},
+			Timeout:            &duration.Duration{Seconds: int64(config.Timeout.Seconds())},
+			Interval:           &duration.Duration{Seconds: int64(config.Interval.Seconds())},
+			UnhealthyThreshold: &wrappers.UInt32Value{Value: config.UnhealthyThreshold},
+			HealthyThreshold:   &wrappers.UInt32Value{Value: config.HealthyThreshold},
 			HealthChecker: &core.HealthCheck_HttpHealthCheck_{
 				HttpHealthCheck: &core.HealthCheck_HttpHealthCheck{
 					Host: upstreamVHost,
@@ -277,33 +300,50 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	} else {
 		tls = nil
 	}
+
+	var err error
+	var anyTls *any.Any
+
+	if tls != nil {
+		anyTls, err = types.MarshalAny(tls)
+		if err != nil {
+			log.Printf("Error marhsalling cluster TLS config: %s", err)
+		}
+	}
+
 	healthChecks := makeHealthChecks(c.VirtualHost, c.HealthCheckPath, healthCfg)
 
-	endpoints := make([]endpoint.LbEndpoint, len(addresses))
+	endpoints := make([]*endpoint.LbEndpoint, len(addresses))
 
 	for idx, address := range addresses {
-		endpoints[idx] = endpoint.LbEndpoint{
-			Endpoint: &endpoint.Endpoint{Address: address},
+		endpoints[idx] = &endpoint.LbEndpoint{
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Address: address}},
 		}
 	}
 
 	cluster := &v2.Cluster{
-		Type:           v2.Cluster_STRICT_DNS,
-		Name:           c.Name,
-		ConnectTimeout: c.Timeout,
+		ClusterDiscoveryType: &v2.Cluster_Type{Type: v2.Cluster_STRICT_DNS},
+		Name:                 c.Name,
+		ConnectTimeout:       &duration.Duration{Seconds: int64(c.Timeout.Seconds())},
 		LoadAssignment: &v2.ClusterLoadAssignment{
 			ClusterName: c.Name,
-			Endpoints: []endpoint.LocalityLbEndpoints{
+			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{LbEndpoints: endpoints},
 			},
 		},
-		TlsContext:   tls,
 		HealthChecks: healthChecks,
 	}
 	if outlierPercentage >= 0 {
 		cluster.OutlierDetection = &v2cluster.OutlierDetection{
-			MaxEjectionPercent: &types.UInt32Value{Value: uint32(outlierPercentage)},
+			MaxEjectionPercent: &wrappers.UInt32Value{Value: uint32(outlierPercentage)},
 		}
 	}
+	if anyTls != nil {
+		cluster.TransportSocket = &core.TransportSocket{
+			Name:       "envoy.transport_sockets.tls",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: anyTls},
+		}
+	}
+
 	return cluster
 }

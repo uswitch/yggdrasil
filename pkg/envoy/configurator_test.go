@@ -4,19 +4,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
+	"github.com/golang/protobuf/ptypes"
 
 	"k8s.io/api/extensions/v1beta1"
 )
 
-func assertNumberOfVirtualHosts(t *testing.T, filterChain listener.FilterChain, expected int) {
+func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain, expected int) {
 	var connManager hcm.HttpConnectionManager
+	var dynamicAny ptypes.DynamicAny
 
-	err := util.StructToMessage(filterChain.Filters[0].Config, &connManager)
+	err := ptypes.UnmarshalAny(filterChain.Filters[0].GetTypedConfig(), &dynamicAny)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	structMessage, err := util.MessageToStruct(dynamicAny.Message)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = util.StructToMessage(structMessage, &connManager)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +58,7 @@ func assertTlsCertificate(t *testing.T, filterChain listener.FilterChain, expect
 	}
 }
 
-func assertServerNames(t *testing.T, filterChain listener.FilterChain, expectedServerNames []string) {
+func assertServerNames(t *testing.T, filterChain *listener.FilterChain, expectedServerNames []string) {
 	serverNames := filterChain.FilterChainMatch.ServerNames
 
 	if len(serverNames) != len(expectedServerNames) {
@@ -70,11 +83,11 @@ func TestGenerate(t *testing.T) {
 
 	snapshot := configurator.Generate(ingresses)
 
-	if len(snapshot.Listeners.Items) != 1 {
-		t.Fatalf("Num listeners: %d", len(snapshot.Listeners.Items))
+	if len(snapshot.Resources[cache.Listener].Items) != 1 {
+		t.Fatalf("Num listeners: %d", len(snapshot.Resources[cache.Listener].Items))
 	}
-	if len(snapshot.Clusters.Items) != 1 {
-		t.Fatalf("Num clusters: %d", len(snapshot.Clusters.Items))
+	if len(snapshot.Resources[cache.Cluster].Items) != 1 {
+		t.Fatalf("Num clusters: %d", len(snapshot.Resources[cache.Cluster].Items))
 	}
 }
 
@@ -90,7 +103,7 @@ func TestGenerateMultipleCerts(t *testing.T) {
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
-	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
+	listener := snapshot.Resources[cache.Listener].Items["listener_0"].(*v2.Listener)
 
 	if len(listener.FilterChains) != 2 {
 		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 2)
@@ -111,7 +124,7 @@ func TestGenerateMultipleHosts(t *testing.T) {
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
-	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
+	listener := snapshot.Resources[cache.Listener].Items["listener_0"].(*v2.Listener)
 
 	if len(listener.FilterChains) != 1 {
 		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 1)
@@ -132,7 +145,7 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
-	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
+	listener := snapshot.Resources[cache.Listener].Items["listener_0"].(*v2.Listener)
 
 	if len(listener.FilterChains) != 1 {
 		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 1)
@@ -150,7 +163,7 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
-	listener := snapshot.Listeners.Items["listener_0"].(*v2.Listener)
+	listener := snapshot.Resources[cache.Listener].Items["listener_0"].(*v2.Listener)
 
 	if len(listener.FilterChains) != 2 {
 		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 2)
