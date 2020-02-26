@@ -211,7 +211,7 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 			},
 		},
 		TransportSocket: &core.TransportSocket{
-			Name:       "tls",
+			Name:       "envoy.transport_sockets.tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: anyTls},
 		},
 	}, nil
@@ -340,7 +340,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	}
 	if anyTls != nil {
 		cluster.TransportSocket = &core.TransportSocket{
-			Name:       "tls",
+			Name:       "envoy.transport_sockets.tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: anyTls},
 		}
 	}
