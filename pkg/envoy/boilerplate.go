@@ -132,10 +132,10 @@ func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectio
 		StatPrefix: "ingress_http",
 		HttpFilters: []*hcm.HttpFilter{
 			&hcm.HttpFilter{
-				Name:       "envoy.health_check",
+				Name:       "envoy.filters.http.health_check",
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyHealthConfig},
 			}, &hcm.HttpFilter{
-				Name: "envoy.router",
+				Name: "envoy.filters.http.router",
 			}},
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
 			{
@@ -151,7 +151,7 @@ func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectio
 		Tracing: &hcm.HttpConnectionManager_Tracing{},
 		AccessLog: []*al.AccessLog{
 			{
-				Name:       "envoy.file_access_log",
+				Name:       "envoy.access_loggers.file",
 				ConfigType: &al.AccessLog_TypedConfig{TypedConfig: anyAccessLogConfig},
 			},
 		},
@@ -206,7 +206,7 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 		FilterChainMatch: filterChainMatch,
 		Filters: []*listener.Filter{
 			&listener.Filter{
-				Name:       "envoy.http_connection_manager",
+				Name:       "envoy.filters.network.http_connection_manager",
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
 			},
 		},
@@ -232,7 +232,7 @@ func makeListener(filterChains []*listener.FilterChain, envoyListenPort uint32) 
 			},
 		},
 		ListenerFilters: []*listener.ListenerFilter{
-			{Name: "envoy.listener.tls_inspector"},
+			{Name: "envoy.filters.listener.tls_inspector"},
 		},
 		FilterChains: filterChains,
 		// Setting the TrafficDirection here for tracing

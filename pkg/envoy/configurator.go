@@ -154,7 +154,7 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 	}
 	return []*listener.FilterChain{&listener.FilterChain{
 		Filters: []*listener.Filter{&listener.Filter{
-			Name:       "envoy.http_connection_manager",
+			Name:       "envoy.filters.network.http_connection_manager",
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
 		}},
 	}}
