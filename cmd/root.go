@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
-	"github.com/envoyproxy/go-control-plane/pkg/server"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

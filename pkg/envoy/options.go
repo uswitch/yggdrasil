@@ -27,7 +27,6 @@ func WithOutlierPercentage(percentage int32) option {
 func WithHostSelectionRetryAttempts(attempts int64) option {
 	return func(c *KubernetesConfigurator) {
 		c.hostSelectionRetryAttempts = attempts
-
 	}
 }
 

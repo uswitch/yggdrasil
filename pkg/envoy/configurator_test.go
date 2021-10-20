@@ -5,10 +5,10 @@ import (
 	"time"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/golang/protobuf/ptypes"
 
