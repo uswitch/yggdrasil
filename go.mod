@@ -38,6 +38,7 @@ require (
 	golang.org/x/time v0.0.0-20161028155119-f51c12702a4d // indirect
 	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506 // indirect
 	google.golang.org/grpc v1.36.0
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/inf.v0 v0.9.0 // indirect
 	k8s.io/api v0.0.0-20181004124137-fd83cbc87e76
 	k8s.io/apimachinery v0.0.0-20180913025736-6dd46049f395

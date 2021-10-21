@@ -1,7 +1,6 @@
 package envoy
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 
@@ -20,14 +19,15 @@ import (
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var (
-	jsonFormat string
+	jsonFormat *structpb.Struct
 )
 
 func init() {
-	format := map[string]string{
+	format := map[string]interface{}{
 		"start_time":                "%START_TIME(%s.%3f)%",
 		"bytes_received":            "%BYTES_RECEIVED%",
 		"protocol":                  "%PROTOCOL%",
@@ -47,11 +47,11 @@ func init() {
 		"user_agent":                "%REQ(USER-AGENT)%",
 		"request_id":                "%REQ(X-REQUEST-ID)%",
 	}
-	b, err := json.Marshal(format)
+	b, err := structpb.NewValue(format)
 	if err != nil {
 		log.Fatal(err)
 	}
-	jsonFormat = string(b) + "\n"
+	jsonFormat = b.GetStructValue()
 }
 
 func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.VirtualHost {
@@ -109,10 +109,18 @@ func makeHealthConfig() *hcfg.HealthCheck {
 }
 
 func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
-	accessLogConfig, err := util.MessageToStruct(&eal.FileAccessLog{
-		Path:            "/var/log/envoy/access.log",
-		AccessLogFormat: &eal.FileAccessLog_Format{Format: jsonFormat},
-	})
+	accessLogConfig, err := util.MessageToStruct(
+		&eal.FileAccessLog{
+			Path: "/var/log/envoy/access.log",
+			AccessLogFormat: &eal.FileAccessLog_LogFormat{
+				LogFormat: &core.SubstitutionFormatString{
+					Format: &core.SubstitutionFormatString_JsonFormat{
+						JsonFormat: jsonFormat,
+					},
+				},
+			},
+		},
+	)
 	if err != nil {
 		log.Fatalf("failed to convert access log proto message to struct: %s", err)
 	}
