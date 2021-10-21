@@ -1,7 +1,7 @@
 # Yggdrasil
 Yggdrasil is an Envoy control plane that configures listeners and clusters based off Kubernetes ingresses from multiple Kube Clusters. This allows you to have an envoy cluster acting as a mutli-cluster loadbalancer for Kubernetes. This was something we needed as we wanted our apps to be highly available in the event of a cluster outage but did not want the solution to live inside of Kubernetes itself.
 
-`Note:` Currently we support version 1.12.x of Envoy.</br>
+`Note:` Currently we support version 1.19.x of Envoy.</br>
 `Note:` Yggdrasil now uses [Go modules](https://github.com/golang/go/wiki/Modules) to handle dependencies.
 
 ## Usage
@@ -26,16 +26,20 @@ admin:
 
 dynamic_resources:
   lds_config:
+    resource_api_version: V3
     api_config_source:
+      transport_api_version: V3
       api_type: GRPC
       grpc_services:
-        envoy_grpc:
+      - envoy_grpc:
           cluster_name: xds_cluster
   cds_config:
+    resource_api_version: V3
     api_config_source:
+      transport_api_version: V3
       api_type: GRPC
       grpc_services:
-        envoy_grpc:
+      - envoy_grpc:
           cluster_name: xds_cluster
 
 static_resources:
@@ -45,7 +49,15 @@ static_resources:
     type: STATIC
     lb_policy: ROUND_ROBIN
     http2_protocol_options: {}
-    hosts: [{ socket_address: { address: yggdrasil, port_value: 8080 }}]
+    load_assignment:
+      cluster_name: xds_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: yggdrasil
+                port_value: 8080
 ```
 
 Your ingress set up then looks like this:
@@ -66,16 +78,16 @@ Yggdrasil allows for some customisation of the route and cluster config per Ingr
 | [yggdrasil.uswitch.com/timeout](#timeout)                    | duration |
 
 ### Health Check Path
-Specifies a path to configure a [HTTP health check](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/core/health_check.proto#core-healthcheck-httphealthcheck) to. Envoy will not route to clusters that fail health checks.
+Specifies a path to configure a [HTTP health check](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/core/v3/health_check.proto#config-core-v3-healthcheck-httphealthcheck) to. Envoy will not route to clusters that fail health checks.
 
-* [core.HealthCheck.HttpHealthCheck.Path](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/core/health_check.proto#envoy-api-field-core-healthcheck-httphealthcheck-path)
+* [config.core.v3.HealthCheck.HttpHealthCheck.Path](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/core/v3/health_check.proto#envoy-v3-api-field-config-core-v3-healthcheck-httphealthcheck-path)
 
 ### Timeout
 Allows for adjusting the timeout in envoy. Currently this will set the following timeouts to this value:
 
-* [route.RouteAction.Timeout](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/route/route.proto#envoy-api-field-route-routeaction-timeout)
-* [route.RouteAction_RetryPolicy.PerTryTimeout](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/route/route.proto#envoy-api-field-route-retrypolicy-per-try-timeout)
-* [cluster.ConnectTimeout](https://www.envoyproxy.io/docs/envoy/v1.11.1/api-v2/api/v2/cds.proto#envoy-api-field-cluster-connect-timeout)
+* [config.route.v3.RouteAction.Timeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-routeaction-timeout)
+* [config.route.v3.RetryPolicy.PerTryTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-per-try-timeout)
+* [config.cluster.v3.Cluster.ConnectTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/cluster/v3/cluster.proto#envoy-v3-api-field-config-cluster-v3-cluster-connect-timeout)
 
 ### Example
 Below is an example of an ingress with some of the annotations specified
