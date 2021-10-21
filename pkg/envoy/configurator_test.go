@@ -4,11 +4,10 @@ import (
 	"testing"
 	"time"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/golang/protobuf/ptypes"
 
@@ -44,7 +43,7 @@ func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain,
 }
 
 func assertTlsCertificate(t *testing.T, filterChain listener.FilterChain, expectedCert, expectedKey string) {
-	certificate := filterChain.TlsContext.CommonTlsContext.TlsCertificates[0]
+	certificate := filterChain.HiddenEnvoyDeprecatedTlsContext.CommonTlsContext.TlsCertificates[0]
 
 	certFile := certificate.CertificateChain.Specifier.(*core.DataSource_InlineString)
 	keyFile := certificate.PrivateKey.Specifier.(*core.DataSource_InlineString)
@@ -83,11 +82,11 @@ func TestGenerate(t *testing.T) {
 
 	snapshot := configurator.Generate(ingresses)
 
-	if len(snapshot.Resources[cache.Listener].Items) != 1 {
-		t.Fatalf("Num listeners: %d", len(snapshot.Resources[cache.Listener].Items))
+	if len(snapshot.Resources[tcache.Listener].Items) != 1 {
+		t.Fatalf("Num listeners: %d", len(snapshot.Resources[tcache.Listener].Items))
 	}
-	if len(snapshot.Resources[cache.Cluster].Items) != 1 {
-		t.Fatalf("Num clusters: %d", len(snapshot.Resources[cache.Cluster].Items))
+	if len(snapshot.Resources[tcache.Cluster].Items) != 1 {
+		t.Fatalf("Num clusters: %d", len(snapshot.Resources[tcache.Cluster].Items))
 	}
 }
 
@@ -103,7 +102,7 @@ func TestGenerateMultipleCerts(t *testing.T) {
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
-	listener := snapshot.Resources[cache.Listener].Items["listener_0"].(*v2.Listener)
+	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 2 {
 		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 2)
@@ -124,7 +123,7 @@ func TestGenerateMultipleHosts(t *testing.T) {
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
-	listener := snapshot.Resources[cache.Listener].Items["listener_0"].(*v2.Listener)
+	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 1 {
 		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 1)
@@ -145,7 +144,7 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
-	listener := snapshot.Resources[cache.Listener].Items["listener_0"].(*v2.Listener)
+	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 1 {
 		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 1)
@@ -163,7 +162,7 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 	}, "d", []string{"bar"})
 
 	snapshot := configurator.Generate(ingresses)
-	listener := snapshot.Resources[cache.Listener].Items["listener_0"].(*v2.Listener)
+	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 2 {
 		t.Fatalf("Num filter chains: %d expected %d", len(listener.FilterChains), 2)
@@ -231,7 +230,7 @@ func TestGenerateListeners(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			configurator := NewKubernetesConfigurator("a", tc.certs, "", nil)
 			ret := configurator.generateListeners(&envoyConfiguration{VirtualHosts: tc.virtualHost})
-			listener := ret[0].(*v2.Listener)
+			listener := ret[0].(*listener.Listener)
 			if len(listener.FilterChains) != 1 {
 				t.Fatalf("filterchain number missmatch")
 			}
