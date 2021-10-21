@@ -153,12 +153,16 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 	if err != nil {
 		log.Fatalf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
-	return []*listener.FilterChain{&listener.FilterChain{
-		Filters: []*listener.Filter{&listener.Filter{
-			Name:       "envoy.filters.network.http_connection_manager",
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
-		}},
-	}}
+	return []*listener.FilterChain{
+		{
+			Filters: []*listener.Filter{
+				{
+					Name:       "envoy.filters.network.http_connection_manager",
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
+				},
+			},
+		},
+	}
 }
 
 func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfiguration) []*listener.FilterChain {

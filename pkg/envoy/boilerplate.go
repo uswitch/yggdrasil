@@ -80,14 +80,16 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.Virtu
 	virtualHost := route.VirtualHost{
 		Name:    "local_service",
 		Domains: []string{vhost.Host},
-		Routes: []*route.Route{&route.Route{
-			Match: &route.RouteMatch{
-				PathSpecifier: &route.RouteMatch_Prefix{
-					Prefix: "/",
+		Routes: []*route.Route{
+			{
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{
+						Prefix: "/",
+					},
 				},
+				Action: action,
 			},
-			Action: action,
-		}},
+		},
 	}
 	return &virtualHost
 }
@@ -96,7 +98,7 @@ func makeHealthConfig() *hcfg.HealthCheck {
 	return &hcfg.HealthCheck{
 		PassThroughMode: &wrappers.BoolValue{Value: false},
 		Headers: []*route.HeaderMatcher{
-			&route.HeaderMatcher{
+			{
 				Name: ":path",
 				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
 					ExactMatch: "/yggdrasil/status",
@@ -130,12 +132,14 @@ func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectio
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "ingress_http",
 		HttpFilters: []*hcm.HttpFilter{
-			&hcm.HttpFilter{
+			{
 				Name:       "envoy.filters.http.health_check",
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyHealthConfig},
-			}, &hcm.HttpFilter{
+			},
+			{
 				Name: "envoy.filters.http.router",
-			}},
+			},
+		},
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
 			{
 				UpgradeType: "websocket",
@@ -171,7 +175,7 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 	tls := &auth.DownstreamTlsContext{}
 	tls.CommonTlsContext = &auth.CommonTlsContext{
 		TlsCertificates: []*auth.TlsCertificate{
-			&auth.TlsCertificate{
+			{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_InlineString{InlineString: certificate.Cert},
 				},
@@ -204,7 +208,7 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 	return listener.FilterChain{
 		FilterChainMatch: filterChainMatch,
 		Filters: []*listener.Filter{
-			&listener.Filter{
+			{
 				Name:       "envoy.filters.network.http_connection_manager",
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
 			},
