@@ -1,34 +1,33 @@
 package envoy
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	v2cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	fal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
-	al "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
-	hcfg "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	cal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	v3cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	eal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	hcfg "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var (
-	jsonFormat string
+	jsonFormat *structpb.Struct
 )
 
 func init() {
-	format := map[string]string{
+	format := map[string]interface{}{
 		"start_time":                "%START_TIME(%s.%3f)%",
 		"bytes_received":            "%BYTES_RECEIVED%",
 		"protocol":                  "%PROTOCOL%",
@@ -48,11 +47,11 @@ func init() {
 		"user_agent":                "%REQ(USER-AGENT)%",
 		"request_id":                "%REQ(X-REQUEST-ID)%",
 	}
-	b, err := json.Marshal(format)
+	b, err := structpb.NewValue(format)
 	if err != nil {
 		log.Fatal(err)
 	}
-	jsonFormat = string(b) + "\n"
+	jsonFormat = b.GetStructValue()
 }
 
 func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.VirtualHost {
@@ -81,14 +80,16 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.Virtu
 	virtualHost := route.VirtualHost{
 		Name:    "local_service",
 		Domains: []string{vhost.Host},
-		Routes: []*route.Route{&route.Route{
-			Match: &route.RouteMatch{
-				PathSpecifier: &route.RouteMatch_Prefix{
-					Prefix: "/",
+		Routes: []*route.Route{
+			{
+				Match: &route.RouteMatch{
+					PathSpecifier: &route.RouteMatch_Prefix{
+						Prefix: "/",
+					},
 				},
+				Action: action,
 			},
-			Action: action,
-		}},
+		},
 	}
 	return &virtualHost
 }
@@ -97,7 +98,7 @@ func makeHealthConfig() *hcfg.HealthCheck {
 	return &hcfg.HealthCheck{
 		PassThroughMode: &wrappers.BoolValue{Value: false},
 		Headers: []*route.HeaderMatcher{
-			&route.HeaderMatcher{
+			{
 				Name: ":path",
 				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
 					ExactMatch: "/yggdrasil/status",
@@ -108,10 +109,18 @@ func makeHealthConfig() *hcfg.HealthCheck {
 }
 
 func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
-	accessLogConfig, err := util.MessageToStruct(&fal.FileAccessLog{
-		Path:            "/var/log/envoy/access.log",
-		AccessLogFormat: &fal.FileAccessLog_Format{Format: jsonFormat},
-	})
+	accessLogConfig, err := util.MessageToStruct(
+		&eal.FileAccessLog{
+			Path: "/var/log/envoy/access.log",
+			AccessLogFormat: &eal.FileAccessLog_LogFormat{
+				LogFormat: &core.SubstitutionFormatString{
+					Format: &core.SubstitutionFormatString_JsonFormat{
+						JsonFormat: jsonFormat,
+					},
+				},
+			},
+		},
+	)
 	if err != nil {
 		log.Fatalf("failed to convert access log proto message to struct: %s", err)
 	}
@@ -131,28 +140,30 @@ func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectio
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "ingress_http",
 		HttpFilters: []*hcm.HttpFilter{
-			&hcm.HttpFilter{
-				Name:       "envoy.health_check",
+			{
+				Name:       "envoy.filters.http.health_check",
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyHealthConfig},
-			}, &hcm.HttpFilter{
-				Name: "envoy.router",
-			}},
+			},
+			{
+				Name: "envoy.filters.http.router",
+			},
+		},
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
 			{
 				UpgradeType: "websocket",
 			},
 		},
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: &v2.RouteConfiguration{
+			RouteConfig: &route.RouteConfiguration{
 				Name:         "local_route",
 				VirtualHosts: virtualHosts,
 			},
 		},
 		Tracing: &hcm.HttpConnectionManager_Tracing{},
-		AccessLog: []*al.AccessLog{
+		AccessLog: []*cal.AccessLog{
 			{
-				Name:       "envoy.file_access_log",
-				ConfigType: &al.AccessLog_TypedConfig{TypedConfig: anyAccessLogConfig},
+				Name:       "envoy.access_loggers.file",
+				ConfigType: &cal.AccessLog_TypedConfig{TypedConfig: anyAccessLogConfig},
 			},
 		},
 	}
@@ -172,7 +183,7 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 	tls := &auth.DownstreamTlsContext{}
 	tls.CommonTlsContext = &auth.CommonTlsContext{
 		TlsCertificates: []*auth.TlsCertificate{
-			&auth.TlsCertificate{
+			{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_InlineString{InlineString: certificate.Cert},
 				},
@@ -205,8 +216,8 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 	return listener.FilterChain{
 		FilterChainMatch: filterChainMatch,
 		Filters: []*listener.Filter{
-			&listener.Filter{
-				Name:       "envoy.http_connection_manager",
+			{
+				Name:       "envoy.filters.network.http_connection_manager",
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
 			},
 		},
@@ -217,9 +228,9 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 	}, nil
 }
 
-func makeListener(filterChains []*listener.FilterChain, envoyListenPort uint32) *v2.Listener {
+func makeListener(filterChains []*listener.FilterChain, envoyListenPort uint32) *listener.Listener {
 
-	listener := v2.Listener{
+	listener := listener.Listener{
 		Name: "listener_0",
 		Address: &core.Address{
 			Address: &core.Address_SocketAddress{
@@ -232,7 +243,7 @@ func makeListener(filterChains []*listener.FilterChain, envoyListenPort uint32) 
 			},
 		},
 		ListenerFilters: []*listener.ListenerFilter{
-			{Name: "envoy.listener.tls_inspector"},
+			{Name: "envoy.filters.listener.tls_inspector"},
 		},
 		FilterChains: filterChains,
 		// Setting the TrafficDirection here for tracing
@@ -284,7 +295,7 @@ func makeHealthChecks(upstreamVHost string, healthPath string, config UpstreamHe
 	return healthChecks
 }
 
-func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPercentage int32, addresses []*core.Address) *v2.Cluster {
+func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPercentage int32, addresses []*core.Address) *v3cluster.Cluster {
 
 	tls := &auth.UpstreamTlsContext{}
 	if ca != "" {
@@ -321,11 +332,11 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 		}
 	}
 
-	cluster := &v2.Cluster{
-		ClusterDiscoveryType: &v2.Cluster_Type{Type: v2.Cluster_STRICT_DNS},
+	cluster := &v3cluster.Cluster{
+		ClusterDiscoveryType: &v3cluster.Cluster_Type{Type: v3cluster.Cluster_STRICT_DNS},
 		Name:                 c.Name,
 		ConnectTimeout:       &duration.Duration{Seconds: int64(c.Timeout.Seconds())},
-		LoadAssignment: &v2.ClusterLoadAssignment{
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: c.Name,
 			Endpoints: []*endpoint.LocalityLbEndpoints{
 				{LbEndpoints: endpoints},
@@ -334,7 +345,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 		HealthChecks: healthChecks,
 	}
 	if outlierPercentage >= 0 {
-		cluster.OutlierDetection = &v2cluster.OutlierDetection{
+		cluster.OutlierDetection = &v3cluster.OutlierDetection{
 			MaxEjectionPercent: &wrappers.UInt32Value{Value: uint32(outlierPercentage)},
 		}
 	}

@@ -4,14 +4,14 @@ workspace:
 
 pipeline:
   test:
-    image: golang:1.12
+    image: golang:1.17
     environment:
       - GO111MODULE=on
     commands:
       - make test
 
   build:
-    image: golang:1.12
+    image: golang:1.17
     environment:
       - GO111MODULE=on
     commands:

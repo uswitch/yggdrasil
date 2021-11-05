@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -86,22 +86,22 @@ func TestClusterEquality(t *testing.T) {
 }
 
 func TestEqualityClusters(t *testing.T) {
-	c1 := []*cluster{&cluster{Name: "foo"}, &cluster{Name: "bar"}}
-	c2 := []*cluster{&cluster{Name: "foo"}, &cluster{Name: "bar"}}
+	c1 := []*cluster{{Name: "foo"}, {Name: "bar"}}
+	c2 := []*cluster{{Name: "foo"}, {Name: "bar"}}
 
 	if !ClustersEquals(c1, c2) {
 		t.Error("expected equal clusters")
 	}
 
-	c3 := []*cluster{&cluster{Name: "foo"}, &cluster{Name: "baz"}}
+	c3 := []*cluster{{Name: "foo"}, {Name: "baz"}}
 	if ClustersEquals(c1, c3) {
 		t.Error("clusters have different names, shouldn't be equal")
 	}
 }
 
 func TestEqualityVirtualHosts(t *testing.T) {
-	a := []*virtualHost{&virtualHost{Host: "foo.com"}, &virtualHost{Host: "bar.com"}}
-	b := []*virtualHost{&virtualHost{Host: "foo.com"}, &virtualHost{Host: "baz.com"}}
+	a := []*virtualHost{{Host: "foo.com"}, {Host: "bar.com"}}
+	b := []*virtualHost{{Host: "foo.com"}, {Host: "baz.com"}}
 
 	if VirtualHostsEquals(a, b) {
 		t.Error("have different hosts, shouldn't be equal")
@@ -301,7 +301,7 @@ func newIngress(specHost string, loadbalancerHost string) v1beta1.Ingress {
 		},
 		Spec: v1beta1.IngressSpec{
 			Rules: []v1beta1.IngressRule{
-				v1beta1.IngressRule{
+				{
 					Host: specHost,
 				},
 			},
@@ -309,7 +309,7 @@ func newIngress(specHost string, loadbalancerHost string) v1beta1.Ingress {
 		Status: v1beta1.IngressStatus{
 			LoadBalancer: v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
-					v1.LoadBalancerIngress{Hostname: loadbalancerHost},
+					{Hostname: loadbalancerHost},
 				},
 			},
 		},
@@ -325,7 +325,7 @@ func newIngressIP(specHost string, loadbalancerHost string) v1beta1.Ingress {
 		},
 		Spec: v1beta1.IngressSpec{
 			Rules: []v1beta1.IngressRule{
-				v1beta1.IngressRule{
+				{
 					Host: specHost,
 				},
 			},
@@ -333,7 +333,7 @@ func newIngressIP(specHost string, loadbalancerHost string) v1beta1.Ingress {
 		Status: v1beta1.IngressStatus{
 			LoadBalancer: v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
-					v1.LoadBalancerIngress{IP: loadbalancerHost},
+					{IP: loadbalancerHost},
 				},
 			},
 		},

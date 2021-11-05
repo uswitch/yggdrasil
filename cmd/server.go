@@ -6,10 +6,13 @@ import (
 	"net"
 	"net/http"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	discover "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/envoyproxy/go-control-plane/pkg/server"
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/service/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
+	server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -20,19 +23,29 @@ type callbacks struct {
 	fetchResp int
 }
 
+func (c *callbacks) OnDeltaStreamClosed(int64) {}
+func (c *callbacks) OnDeltaStreamOpen(context.Context, int64, string) error {
+	return nil
+}
+func (c *callbacks) OnStreamDeltaRequest(int64, *discovery.DeltaDiscoveryRequest) error {
+	return nil
+}
+func (c *callbacks) OnStreamDeltaResponse(int64, *discovery.DeltaDiscoveryRequest, *discovery.DeltaDiscoveryResponse) {
+}
 func (c *callbacks) OnStreamOpen(context.Context, int64, string) error {
 	return nil
 }
 func (c *callbacks) OnStreamClosed(int64) {}
-func (c *callbacks) OnStreamRequest(int64, *v2.DiscoveryRequest) error {
+func (c *callbacks) OnStreamRequest(int64, *discovery.DiscoveryRequest) error {
 	return nil
 }
-func (c *callbacks) OnStreamResponse(int64, *v2.DiscoveryRequest, *v2.DiscoveryResponse) {}
-func (c *callbacks) OnFetchRequest(context.Context, *v2.DiscoveryRequest) error {
+func (c *callbacks) OnStreamResponse(int64, *discovery.DiscoveryRequest, *discovery.DiscoveryResponse) {
+}
+func (c *callbacks) OnFetchRequest(context.Context, *discovery.DiscoveryRequest) error {
 	c.fetchReq++
 	return nil
 }
-func (c *callbacks) OnFetchResponse(*v2.DiscoveryRequest, *v2.DiscoveryResponse) {
+func (c *callbacks) OnFetchResponse(*discovery.DiscoveryRequest, *discovery.DiscoveryResponse) {
 	c.fetchResp++
 }
 
@@ -48,11 +61,11 @@ func runEnvoyServer(envoyServer server.Server, address string, healthAddress str
 		log.Fatal("failed to listen")
 	}
 
-	discover.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoyServer)
-	v2.RegisterEndpointDiscoveryServiceServer(grpcServer, envoyServer)
-	v2.RegisterClusterDiscoveryServiceServer(grpcServer, envoyServer)
-	v2.RegisterRouteDiscoveryServiceServer(grpcServer, envoyServer)
-	v2.RegisterListenerDiscoveryServiceServer(grpcServer, envoyServer)
+	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoyServer)
+	endpoint.RegisterEndpointDiscoveryServiceServer(grpcServer, envoyServer)
+	cluster.RegisterClusterDiscoveryServiceServer(grpcServer, envoyServer)
+	route.RegisterRouteDiscoveryServiceServer(grpcServer, envoyServer)
+	listener.RegisterListenerDiscoveryServiceServer(grpcServer, envoyServer)
 
 	healthMux := http.NewServeMux()
 

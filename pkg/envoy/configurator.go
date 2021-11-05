@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
+	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
 	"k8s.io/api/extensions/v1beta1"
@@ -79,8 +80,8 @@ func (c *KubernetesConfigurator) Generate(ingresses []v1beta1.Ingress) cache.Sna
 	c.previousConfig = config
 
 	snap := cache.Snapshot{}
-	snap.Resources[cache.Cluster] = cache.NewResources(c.clusterVersion, []cache.Resource(clusters))
-	snap.Resources[cache.Listener] = cache.NewResources(c.listenerVersion, []cache.Resource(listeners))
+	snap.Resources[tcache.Cluster] = cache.NewResources(c.clusterVersion, []tcache.Resource(clusters))
+	snap.Resources[tcache.Listener] = cache.NewResources(c.listenerVersion, []tcache.Resource(listeners))
 	return snap
 }
 
@@ -127,14 +128,14 @@ func (c *KubernetesConfigurator) matchCertificateIndices(virtualHost *virtualHos
 	return []int{}, errNoCertificateMatch
 }
 
-func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) []cache.Resource {
+func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) []tcache.Resource {
 	var filterChains []*listener.FilterChain
 	if len(c.certificates) > 0 {
 		filterChains = c.generateTLSFilterChains(config)
 	} else {
 		filterChains = c.generateHTTPFilterChain(config)
 	}
-	return []cache.Resource{makeListener(filterChains, c.envoyListenPort)}
+	return []tcache.Resource{makeListener(filterChains, c.envoyListenPort)}
 }
 
 func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) []*listener.FilterChain {
@@ -152,12 +153,16 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 	if err != nil {
 		log.Fatalf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
-	return []*listener.FilterChain{&listener.FilterChain{
-		Filters: []*listener.Filter{&listener.Filter{
-			Name:       "envoy.http_connection_manager",
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
-		}},
-	}}
+	return []*listener.FilterChain{
+		{
+			Filters: []*listener.Filter{
+				{
+					Name:       "envoy.filters.network.http_connection_manager",
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: anyHttpConfig},
+				},
+			},
+		},
+	}
 }
 
 func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfiguration) []*listener.FilterChain {
@@ -192,8 +197,8 @@ func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfigurat
 	return filterChains
 }
 
-func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []cache.Resource {
-	clusters := []cache.Resource{}
+func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []tcache.Resource {
+	clusters := []tcache.Resource{}
 
 	for _, cluster := range config.Clusters {
 		addresses := makeAddresses(cluster.Hosts, c.upstreamPort)

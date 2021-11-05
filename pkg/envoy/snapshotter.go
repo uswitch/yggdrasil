@@ -3,7 +3,7 @@ package envoy
 import (
 	"context"
 
-	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
 
