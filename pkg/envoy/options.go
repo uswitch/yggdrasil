@@ -3,6 +3,13 @@ package envoy
 type option func(c *KubernetesConfigurator)
 
 // WithEnvoyPort configures the given envoy port into a KubernetesConfigurator
+func WithEnvoyListenerIpv4Address(address string) option {
+	return func(c *KubernetesConfigurator) {
+		c.envoyListenerIpv4Address = address
+	}
+}
+
+// WithEnvoyPort configures the given envoy port into a KubernetesConfigurator
 func WithEnvoyPort(port uint32) option {
 	return func(c *KubernetesConfigurator) {
 		c.envoyListenPort = port
