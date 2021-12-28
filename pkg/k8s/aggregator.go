@@ -26,7 +26,7 @@ func (i *IngressAggregator) Events() chan interface{} {
 }
 
 //Run starts all the ingress informers. Will block until all controllers
-//have sycned. Shouldn't be called in go routine
+//have synced. Shouldn't be called in go routine
 func (i *IngressAggregator) Run(ctx context.Context) error {
 	for _, c := range i.controllers {
 		logrus.Debugf("starting cache controller: %+v", c)

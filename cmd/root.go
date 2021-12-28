@@ -42,6 +42,7 @@ type config struct {
 	MaxEjectionPercentage      uint32                    `json:"maxEjectionPercentage"`
 	HostSelectionRetryAttempts int64                     `json:"hostSelectionRetryAttempts"`
 	UpstreamHealthCheck        envoy.UpstreamHealthCheck `json:"upstreamHealthCheck"`
+	UseRemoteAddress           bool                      `json:"useRemoteAddress"`
 }
 
 // Hasher returns node ID as an ID
@@ -87,6 +88,7 @@ func init() {
 	rootCmd.PersistentFlags().Duration("upstream-healthcheck-timeout", 5*time.Second, "timeout of the upstream healthchecks")
 	rootCmd.PersistentFlags().Uint32("upstream-healthcheck-healthy", 3, "number of successful healthchecks before the backend is considered healthy")
 	rootCmd.PersistentFlags().Uint32("upstream-healthcheck-unhealthy", 3, "number of failed healthchecks before the backend is considered unhealthy")
+	rootCmd.PersistentFlags().Bool("use-remote-address", false, "populates the X-Forwarded-For header with the client address. Set to true when used as edge proxy")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
@@ -103,6 +105,7 @@ func init() {
 	viper.BindPFlag("upstreamHealthCheck.timeout", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-timeout"))
 	viper.BindPFlag("upstreamHealthCheck.healthyThreshold", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-healthy"))
 	viper.BindPFlag("upstreamHealthCheck.unhealthyThreshold", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-unhealthy"))
+	viper.BindPFlag("useRemoteAddress", rootCmd.PersistentFlags().Lookup("use-remote-address"))
 }
 
 func initConfig() {
@@ -190,6 +193,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithOutlierPercentage(viper.GetInt32("maxEjectionPercentage")),
 		envoy.WithHostSelectionRetryAttempts(viper.GetInt64("hostSelectionRetryAttempts")),
 		envoy.WithUpstreamHealthCheck(c.UpstreamHealthCheck),
+		envoy.WithUseRemoteAddress(c.UseRemoteAddress),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 

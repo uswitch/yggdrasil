@@ -40,6 +40,7 @@ type KubernetesConfigurator struct {
 	outlierPercentage          int32
 	hostSelectionRetryAttempts int64
 	upstreamHealthCheck        UpstreamHealthCheck
+	useRemoteAddress           bool
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -144,7 +145,7 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
 	}
 
-	httpConnectionManager := makeConnectionManager(virtualHosts)
+	httpConnectionManager := c.makeConnectionManager(virtualHosts)
 	httpConfig, err := util.MessageToStruct(httpConnectionManager)
 	if err != nil {
 		log.Fatalf("failed to convert virtualHost to envoy control plane struct: %s", err)
@@ -187,7 +188,7 @@ func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfigurat
 			continue
 		}
 
-		filterChain, err := makeFilterChain(certificate, virtualHosts)
+		filterChain, err := c.makeFilterChain(certificate, virtualHosts)
 		if err != nil {
 			log.Printf("Error making filter chain: %v", err)
 		}
