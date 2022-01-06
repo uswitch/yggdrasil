@@ -37,6 +37,7 @@ type KubernetesConfigurator struct {
 	trustCA                    string
 	upstreamPort               uint32
 	envoyListenPort            uint32
+	envoyListenerIpv4Address   string
 	outlierPercentage          int32
 	hostSelectionRetryAttempts int64
 	upstreamHealthCheck        UpstreamHealthCheck
@@ -135,7 +136,7 @@ func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) [
 	} else {
 		filterChains = c.generateHTTPFilterChain(config)
 	}
-	return []tcache.Resource{makeListener(filterChains, c.envoyListenPort)}
+	return []tcache.Resource{makeListener(filterChains, c.envoyListenerIpv4Address, c.envoyListenPort)}
 }
 
 func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) []*listener.FilterChain {

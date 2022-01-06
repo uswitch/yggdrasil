@@ -228,14 +228,14 @@ func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost)
 	}, nil
 }
 
-func makeListener(filterChains []*listener.FilterChain, envoyListenPort uint32) *listener.Listener {
+func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) *listener.Listener {
 
 	listener := listener.Listener{
 		Name: "listener_0",
 		Address: &core.Address{
 			Address: &core.Address_SocketAddress{
 				SocketAddress: &core.SocketAddress{
-					Address: "0.0.0.0",
+					Address: envoyListenerIpv4Address,
 					PortSpecifier: &core.SocketAddress_PortValue{
 						PortValue: envoyListenPort,
 					},
