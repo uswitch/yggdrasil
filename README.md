@@ -180,4 +180,5 @@ The Yggdrasil-specific metrics which are available from the API are:
 --upstream-healthcheck-timeout duration    timeout of the upstream healthchecks (default 5s)
 --upstream-healthcheck-unhealthy uint32    number of failed healthchecks before the backend is considered unhealthy (default 3)
 --upstream-port uint32                     port used to connect to the upstream ingresses (default 443)
+--use-remote-address                       populates the X-Forwarded-For header with the client address. Set to true when used as edge proxy - [documentation](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-field-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-use-remote-address) (default false)
 ```

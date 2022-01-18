@@ -43,3 +43,10 @@ func WithUpstreamHealthCheck(config UpstreamHealthCheck) option {
 		c.upstreamHealthCheck = config
 	}
 }
+
+// WithUseRemoteAddress configures the useRemoteAddress option into the KubernetesConfigurator
+func WithUseRemoteAddress(useRemoteAddress bool) option {
+	return func(c *KubernetesConfigurator) {
+		c.useRemoteAddress = useRemoteAddress
+	}
+}

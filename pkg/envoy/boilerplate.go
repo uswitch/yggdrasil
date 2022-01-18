@@ -20,6 +20,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var (
@@ -108,7 +109,7 @@ func makeHealthConfig() *hcfg.HealthCheck {
 	}
 }
 
-func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
+func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
 	accessLogConfig, err := util.MessageToStruct(
 		&eal.FileAccessLog{
 			Path: "/var/log/envoy/access.log",
@@ -166,11 +167,12 @@ func makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectio
 				ConfigType: &cal.AccessLog_TypedConfig{TypedConfig: anyAccessLogConfig},
 			},
 		},
+		UseRemoteAddress: &wrapperspb.BoolValue{Value: c.useRemoteAddress},
 	}
 }
 
-func makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
-	httpConnectionManager := makeConnectionManager(virtualHosts)
+func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
+	httpConnectionManager := c.makeConnectionManager(virtualHosts)
 	httpConfig, err := util.MessageToStruct(httpConnectionManager)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to convert virtualHost to envoy control plane struct: %s", err)
