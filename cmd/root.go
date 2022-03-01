@@ -44,6 +44,8 @@ type config struct {
 	HostSelectionRetryAttempts int64                     `json:"hostSelectionRetryAttempts"`
 	UpstreamHealthCheck        envoy.UpstreamHealthCheck `json:"upstreamHealthCheck"`
 	UseRemoteAddress           bool                      `json:"useRemoteAddress"`
+	HttpExtAuthz               envoy.HttpExtAuthz        `json:"httpExtAuthz"`
+	HttpGrpcLogger             envoy.HttpGrpcLogger      `json:"httpGrpcLogger"`
 }
 
 // Hasher returns node ID as an ID
@@ -57,7 +59,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "yggdrasil",
-	Short: "yggdrasil creates an envoy control plane that watches ingress objects",
+	Short: "yggdrasil creates an envoy control plane that watches ingress objects  ",
 	RunE:  main,
 }
 
@@ -91,6 +93,16 @@ func init() {
 	rootCmd.PersistentFlags().Uint32("upstream-healthcheck-healthy", 3, "number of successful healthchecks before the backend is considered healthy")
 	rootCmd.PersistentFlags().Uint32("upstream-healthcheck-unhealthy", 3, "number of failed healthchecks before the backend is considered unhealthy")
 	rootCmd.PersistentFlags().Bool("use-remote-address", false, "populates the X-Forwarded-For header with the client address. Set to true when used as edge proxy")
+	rootCmd.PersistentFlags().String("http-grpc-logger-name", "", "Name of the access log")
+	rootCmd.PersistentFlags().String("http-grpc-logger-cluster", "", "The name of the upstream gRPC cluster")
+	rootCmd.PersistentFlags().Duration("http-grpc-logger-timeout", 200*time.Millisecond, "The timeout for the gRPC request")
+	rootCmd.PersistentFlags().StringSlice("http-grpc-logger-request-headers", []string{}, "access logs request headers")
+	rootCmd.PersistentFlags().StringSlice("http-grpc-logger-response-headers", []string{}, "access logs response headers")
+	rootCmd.PersistentFlags().String("http-ext-authz-cluster", "", "The name of the upstream gRPC cluster")
+	rootCmd.PersistentFlags().Duration("http-ext-authz-timeout", 200*time.Millisecond, "The timeout for the gRPC request. This is the timeout for a specific request.")
+	rootCmd.PersistentFlags().Uint32("http-ext-authz-max-request-bytes", 8192, "Sets the maximum size of a message body that the filter will hold in memory")
+	rootCmd.PersistentFlags().Bool("http-ext-authz-allow-partial-message", true, "When this field is true, Envoy will buffer the message until max_request_bytes is reached")
+	rootCmd.PersistentFlags().Bool("http-ext-authz-failure-mode-allow", true, "Changes filters behaviour on errors")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
@@ -109,6 +121,16 @@ func init() {
 	viper.BindPFlag("upstreamHealthCheck.healthyThreshold", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-healthy"))
 	viper.BindPFlag("upstreamHealthCheck.unhealthyThreshold", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-unhealthy"))
 	viper.BindPFlag("useRemoteAddress", rootCmd.PersistentFlags().Lookup("use-remote-address"))
+	viper.BindPFlag("httpGrpcLogger.name", rootCmd.PersistentFlags().Lookup("http-grpc-logger-name"))
+	viper.BindPFlag("httpGrpcLogger.cluster", rootCmd.PersistentFlags().Lookup("http-grpc-logger-cluster"))
+	viper.BindPFlag("httpGrpcLogger.timeout", rootCmd.PersistentFlags().Lookup("http-grpc-logger-timeout"))
+	viper.BindPFlag("httpGrpcLogger.requestHeaders", rootCmd.PersistentFlags().Lookup("http-grpc-logger-request-headers"))
+	viper.BindPFlag("httpGrpcLogger.responseHeaders", rootCmd.PersistentFlags().Lookup("http-grpc-logger-response-headers"))
+	viper.BindPFlag("httpExtAuthz.cluster", rootCmd.PersistentFlags().Lookup("http-ext-authz-cluster"))
+	viper.BindPFlag("httpExtAuthz.timeout", rootCmd.PersistentFlags().Lookup("http-ext-authz-timeout"))
+	viper.BindPFlag("httpExtAuthz.maxRequestBytes", rootCmd.PersistentFlags().Lookup("http-ext-authz-max-request-bytes"))
+	viper.BindPFlag("httpExtAuthz.allowPartialMessage", rootCmd.PersistentFlags().Lookup("http-ext-authz-allow-partial-message"))
+	viper.BindPFlag("httpExtAuthz.FailureModeAllow", rootCmd.PersistentFlags().Lookup("http-ext-authz-failure-mode-allow"))
 }
 
 func initConfig() {
@@ -198,6 +220,8 @@ func main(*cobra.Command, []string) error {
 		envoy.WithHostSelectionRetryAttempts(viper.GetInt64("hostSelectionRetryAttempts")),
 		envoy.WithUpstreamHealthCheck(c.UpstreamHealthCheck),
 		envoy.WithUseRemoteAddress(c.UseRemoteAddress),
+		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
+		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
 
