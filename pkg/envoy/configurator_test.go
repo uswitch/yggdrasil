@@ -11,7 +11,7 @@ import (
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/golang/protobuf/ptypes"
 
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1"
 )
 
 func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain, expected int) {
@@ -72,7 +72,7 @@ func assertServerNames(t *testing.T, filterChain *listener.FilterChain, expected
 }
 
 func TestGenerate(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
+	ingresses := []v1.Ingress{
 		newIngress("wibble", "bibble"),
 	}
 
@@ -91,7 +91,7 @@ func TestGenerate(t *testing.T) {
 }
 
 func TestGenerateMultipleCerts(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
+	ingresses := []v1.Ingress{
 		newIngress("foo.internal.api.com", "bibble"),
 		newIngress("foo.internal.api.co.uk", "bibble"),
 	}
@@ -113,7 +113,7 @@ func TestGenerateMultipleCerts(t *testing.T) {
 }
 
 func TestGenerateMultipleHosts(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
+	ingresses := []v1.Ingress{
 		newIngress("foo.internal.api.com", "bibble"),
 		newIngress("foo.internal.api.co.uk", "bibble"),
 	}
@@ -134,7 +134,7 @@ func TestGenerateMultipleHosts(t *testing.T) {
 }
 
 func TestGenerateNoMatchingCert(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
+	ingresses := []v1.Ingress{
 		newIngress("foo.internal.api.com", "bibble"),
 		newIngress("foo.internal.api.co.uk", "bibble"),
 	}
@@ -152,7 +152,7 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 }
 
 func TestGenerateIntoTwoCerts(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
+	ingresses := []v1.Ingress{
 		newIngress("foo.internal.api.com", "bibble"),
 	}
 

@@ -13,7 +13,7 @@ import (
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1"
 )
 
 type Certificate struct {
@@ -77,7 +77,7 @@ func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca str
 }
 
 //Generate creates a new snapshot
-func (c *KubernetesConfigurator) Generate(ingresses []v1beta1.Ingress) cache.Snapshot {
+func (c *KubernetesConfigurator) Generate(ingresses []v1.Ingress) cache.Snapshot {
 	c.Lock()
 	defer c.Unlock()
 

@@ -5,14 +5,14 @@ import (
 
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1"
 
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
 //Configurator is an interface that implements Generate and NodeID
 type Configurator interface {
-	Generate([]v1beta1.Ingress) cache.Snapshot
+	Generate([]v1.Ingress) cache.Snapshot
 	NodeID() string
 }
 

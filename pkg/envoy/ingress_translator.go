@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1"
 )
 
 func sortCluster(clusters []*cluster) {
@@ -134,8 +134,8 @@ func (cfg *envoyConfiguration) equals(oldCfg *envoyConfiguration) (vmatch bool, 
 	return VirtualHostsEquals(cfg.VirtualHosts, oldCfg.VirtualHosts), ClustersEquals(cfg.Clusters, oldCfg.Clusters)
 }
 
-func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.Ingress {
-	is := make([]v1beta1.Ingress, 0)
+func classFilter(ingresses []v1.Ingress, ingressClass []string) []v1.Ingress {
+	is := make([]v1.Ingress, 0)
 
 	for _, i := range ingresses {
 		for _, class := range ingressClass {
@@ -148,8 +148,8 @@ func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.I
 	return is
 }
 
-func validIngressFilter(ingresses []v1beta1.Ingress) []v1beta1.Ingress {
-	vi := make([]v1beta1.Ingress, 0)
+func validIngressFilter(ingresses []v1.Ingress) []v1.Ingress {
+	vi := make([]v1.Ingress, 0)
 
 Ingress:
 	for _, i := range ingresses {
@@ -209,7 +209,7 @@ func (ing *envoyIngress) addTimeout(timeout time.Duration) {
 	ing.vhost.PerTryTimeout = timeout
 }
 
-func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
+func translateIngresses(ingresses []v1.Ingress) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
 

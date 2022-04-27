@@ -7,5 +7,5 @@ import (
 )
 
 func NewListWatch(client *kubernetes.Clientset) *cache.ListWatch {
-	return cache.NewListWatchFromClient(client.ExtensionsV1beta1().RESTClient(), "ingresses", "", fields.Everything())
+	return cache.NewListWatchFromClient(client.NetworkingV1().RESTClient(), "ingresses", "", fields.Everything())
 }

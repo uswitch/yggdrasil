@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 	kt "k8s.io/client-go/tools/cache/testing"
 )
@@ -23,7 +23,7 @@ func TestListReturnsEmptyWithNoObjects(t *testing.T) {
 
 func TestReturnsIngresses(t *testing.T) {
 	source := kt.NewFakeControllerSource()
-	source.Add(&v1beta1.Ingress{})
+	source.Add(&v1.Ingress{})
 
 	a := NewIngressAggregator([]cache.ListerWatcher{source})
 	go reader(context.Background(), a.Events())
@@ -40,9 +40,9 @@ func TestReturnsIngresses(t *testing.T) {
 
 func TestReturnsFromMultipleIngressControllers(t *testing.T) {
 	source1 := kt.NewFakeControllerSource()
-	source1.Add(&v1beta1.Ingress{})
+	source1.Add(&v1.Ingress{})
 	source2 := kt.NewFakeControllerSource()
-	source2.Add(&v1beta1.Ingress{})
+	source2.Add(&v1.Ingress{})
 
 	a := NewIngressAggregator([]cache.ListerWatcher{source1, source2})
 	go reader(context.Background(), a.Events())
