@@ -38,4 +38,3 @@ pipeline:
       - ${DRONE_TAG}
     when:
       event: tag
-      branch: master
