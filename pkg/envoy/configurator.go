@@ -29,6 +29,22 @@ type UpstreamHealthCheck struct {
 	HealthyThreshold   uint32        `json:"healtyThreshold"`
 }
 
+type HttpExtAuthz struct {
+	Cluster             string        `json:"cluster"`
+	Timeout             time.Duration `json:"timeout"`
+	MaxRequestBytes     uint32        `json:"maxRequestBytes"`
+	AllowPartialMessage bool          `json:"allowPartialMessage"`
+	FailureModeAllow    bool          `json:"FailureModeAllow"`
+}
+
+type HttpGrpcLogger struct {
+	Name                      string        `json:"name"`
+	Cluster                   string        `json:"cluster"`
+	Timeout                   time.Duration `json:"timeout"`
+	AdditionalRequestHeaders  []string      `json:"additionalRequestHeaders"`
+	AdditionalResponseHeaders []string      `json:"additionalResponseHeaders"`
+}
+
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
 	ingressClasses             []string
@@ -42,6 +58,8 @@ type KubernetesConfigurator struct {
 	hostSelectionRetryAttempts int64
 	upstreamHealthCheck        UpstreamHealthCheck
 	useRemoteAddress           bool
+	httpExtAuthz               HttpExtAuthz
+	httpGrpcLogger             HttpGrpcLogger
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -100,7 +118,7 @@ func compareHosts(pattern, host string) bool {
 	hostParts := strings.Split(host, ".")
 
 	if len(patternParts) == len(hostParts) {
-		for i, _ := range patternParts {
+		for i := range patternParts {
 			if patternParts[i] != "*" && patternParts[i] != hostParts[i] {
 				return false
 			}

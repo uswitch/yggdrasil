@@ -11,6 +11,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	eal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	gal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
+	eauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	hcfg "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -19,6 +21,7 @@ import (
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -109,7 +112,48 @@ func makeHealthConfig() *hcfg.HealthCheck {
 	}
 }
 
+func makeExtAuthzConfig(cfg HttpExtAuthz) *eauthz.ExtAuthz {
+	return &eauthz.ExtAuthz{
+		TransportApiVersion: core.ApiVersion_V3,
+		Services: &eauthz.ExtAuthz_GrpcService{
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: cfg.Cluster,
+					},
+				},
+				Timeout: durationpb.New(cfg.Timeout),
+			},
+		},
+		WithRequestBody: &eauthz.BufferSettings{
+			MaxRequestBytes:     cfg.MaxRequestBytes,
+			AllowPartialMessage: cfg.AllowPartialMessage,
+		},
+		FailureModeAllow: cfg.FailureModeAllow,
+	}
+}
+
+func makeGrpcLoggerConfig(cfg HttpGrpcLogger) *gal.HttpGrpcAccessLogConfig {
+	return &gal.HttpGrpcAccessLogConfig{
+		CommonConfig: &gal.CommonGrpcAccessLogConfig{
+			LogName: cfg.Name,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: cfg.Cluster,
+					},
+				},
+				Timeout: durationpb.New(cfg.Timeout),
+			},
+			TransportApiVersion: core.ApiVersion_V3,
+		},
+		AdditionalRequestHeadersToLog:  cfg.AdditionalRequestHeaders,
+		AdditionalResponseHeadersToLog: cfg.AdditionalResponseHeaders,
+	}
+}
+
 func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
+	// Access Logs
 	accessLogConfig, err := util.MessageToStruct(
 		&eal.FileAccessLog{
 			Path: "/var/log/envoy/access.log",
@@ -129,6 +173,32 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	if err != nil {
 		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)
 	}
+
+	accessLoggers := []*cal.AccessLog{
+		{
+			Name:       "envoy.access_loggers.file",
+			ConfigType: &cal.AccessLog_TypedConfig{TypedConfig: anyAccessLogConfig},
+		},
+	}
+
+	if c.httpGrpcLogger.Cluster != "" {
+		grpcLoggerConfig, err := util.MessageToStruct(makeGrpcLoggerConfig(c.httpGrpcLogger))
+		if err != nil {
+			log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
+		}
+		anyGrpcLoggerConfig, err := types.MarshalAny(grpcLoggerConfig)
+		if err != nil {
+			log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
+		}
+		accessLoggers = append(accessLoggers, &cal.AccessLog{
+			Name:       "envoy.access_loggers.http_grpc",
+			ConfigType: &cal.AccessLog_TypedConfig{TypedConfig: anyGrpcLoggerConfig},
+		})
+	}
+
+	// HTTP Filters
+	filterBuilder := &httpFilterBuilder{}
+
 	healthConfig, err := util.MessageToStruct(makeHealthConfig())
 	if err != nil {
 		log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
@@ -137,18 +207,32 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	if err != nil {
 		log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 	}
+
+	filterBuilder.Add(&hcm.HttpFilter{
+		Name:       "envoy.filters.http.health_check",
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyHealthConfig},
+	})
+
+	if c.httpExtAuthz.Cluster != "" {
+		extAuthzConfig, err := util.MessageToStruct(makeExtAuthzConfig(c.httpExtAuthz))
+		if err != nil {
+			log.Fatalf("failed to convert extAuthz proto message to struct: %s", err)
+		}
+		anyExtAuthzConfig, err := types.MarshalAny(extAuthzConfig)
+		if err != nil {
+			log.Fatalf("failed to marshal extAuthz config struct to typed struct: %s", err)
+		}
+
+		filterBuilder.Add(&hcm.HttpFilter{
+			Name:       "envoy.filters.http.ext_authz",
+			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyExtAuthzConfig},
+		})
+	}
+
 	return &hcm.HttpConnectionManager{
-		CodecType:  hcm.HttpConnectionManager_AUTO,
-		StatPrefix: "ingress_http",
-		HttpFilters: []*hcm.HttpFilter{
-			{
-				Name:       "envoy.filters.http.health_check",
-				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyHealthConfig},
-			},
-			{
-				Name: "envoy.filters.http.router",
-			},
-		},
+		CodecType:   hcm.HttpConnectionManager_AUTO,
+		StatPrefix:  "ingress_http",
+		HttpFilters: filterBuilder.Filters(),
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
 			{
 				UpgradeType: "websocket",
@@ -160,13 +244,8 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 				VirtualHosts: virtualHosts,
 			},
 		},
-		Tracing: &hcm.HttpConnectionManager_Tracing{},
-		AccessLog: []*cal.AccessLog{
-			{
-				Name:       "envoy.access_loggers.file",
-				ConfigType: &cal.AccessLog_TypedConfig{TypedConfig: anyAccessLogConfig},
-			},
-		},
+		Tracing:          &hcm.HttpConnectionManager_Tracing{},
+		AccessLog:        accessLoggers,
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: c.useRemoteAddress},
 	}
 }
@@ -337,7 +416,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	cluster := &v3cluster.Cluster{
 		ClusterDiscoveryType: &v3cluster.Cluster_Type{Type: v3cluster.Cluster_STRICT_DNS},
 		Name:                 c.Name,
-		ConnectTimeout:       &duration.Duration{Seconds: int64(c.Timeout.Seconds())},
+		ConnectTimeout:       durationpb.New(c.Timeout),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: c.Name,
 			Endpoints: []*endpoint.LocalityLbEndpoints{

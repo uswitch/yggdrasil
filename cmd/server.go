@@ -70,7 +70,7 @@ func runEnvoyServer(envoyServer server.Server, address string, healthAddress str
 	healthMux := http.NewServeMux()
 
 	healthServer := &http.Server{
-		Addr:    fmt.Sprintf(healthAddress),
+		Addr:    fmt.Sprint(healthAddress),
 		Handler: healthMux,
 	}
 

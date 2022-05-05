@@ -50,3 +50,17 @@ func WithUseRemoteAddress(useRemoteAddress bool) option {
 		c.useRemoteAddress = useRemoteAddress
 	}
 }
+
+// WithHttpExtAuthzCluster configures the options for the gRPC cluster
+func WithHttpExtAuthzCluster(httpExtAuthz HttpExtAuthz) option {
+	return func(c *KubernetesConfigurator) {
+		c.httpExtAuthz = httpExtAuthz
+	}
+}
+
+// WithHttpGrpcLogger configures the options for the gPRC access logger
+func WithHttpGrpcLogger(httpGrpcLogger HttpGrpcLogger) option {
+	return func(c *KubernetesConfigurator) {
+		c.httpGrpcLogger = httpGrpcLogger
+	}
+}

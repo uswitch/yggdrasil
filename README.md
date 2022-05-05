@@ -160,25 +160,35 @@ The Yggdrasil-specific metrics which are available from the API are:
 
 ## Flags
 ```
---address string                           yggdrasil envoy control plane listen address (default "0.0.0.0:8080")
---ca string                                trustedCA
---cert string                              certfile
---config string                            config file
---debug                                    Log at debug level
---envoy-listener-ipv4-address string       IPv4 address by the envoy proxy to accept incoming connections (default 0.0.0.0)
---envoy-port uint32                        port by the envoy proxy to accept incoming connections (default 10000)
---health-address string                    yggdrasil health API listen address (default "0.0.0.0:8081")
--h, --help                                 help for yggdrasil
---host-selection-retry-attempts int        Number of host selection retry attempts. Set to value >=0 to enable (default -1)
---ingress-classes strings                  Ingress classes to watch
---key string                               keyfile
---kube-config stringArray                  Path to kube config
---max-ejection-percentage int32            maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy. (default -1)
---node-name string                         envoy node name
---upstream-healthcheck-healthy uint32      number of successful healthchecks before the backend is considered healthy (default 3)
---upstream-healthcheck-interval duration   duration of the upstream health check interval (default 10s)
---upstream-healthcheck-timeout duration    timeout of the upstream healthchecks (default 5s)
---upstream-healthcheck-unhealthy uint32    number of failed healthchecks before the backend is considered unhealthy (default 3)
---upstream-port uint32                     port used to connect to the upstream ingresses (default 443)
---use-remote-address                       populates the X-Forwarded-For header with the client address. Set to true when used as edge proxy - [documentation](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-field-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-use-remote-address) (default false)
+--address string                              yggdrasil envoy control plane listen address (default "0.0.0.0:8080")
+--ca string                                   trustedCA
+--cert string                                 certfile
+--config string                               config file
+--debug                                       Log at debug level
+--envoy-listener-ipv4-address string          IPv4 address by the envoy proxy to accept incoming connections (default "0.0.0.0")
+--envoy-port uint32                           port by the envoy proxy to accept incoming connections (default 10000)
+--health-address string                       yggdrasil health API listen address (default "0.0.0.0:8081")
+--help                                        help for yggdrasil
+--host-selection-retry-attempts int           Number of host selection retry attempts. Set to value >=0 to enable (default -1)
+--http-ext-authz-allow-partial-message        When this field is true, Envoy will buffer the message until max_request_bytes is reached (default true)
+--http-ext-authz-cluster string               The name of the upstream gRPC cluster
+--http-ext-authz-failure-mode-allow           Changes filters behaviour on errors (default true)
+--http-ext-authz-max-request-bytes uint32     Sets the maximum size of a message body that the filter will hold in memory (default 8192)
+--http-ext-authz-timeout duration             The timeout for the gRPC request. This is the timeout for a specific request. (default 200ms)
+--http-grpc-logger-cluster string             The name of the upstream gRPC cluster
+--http-grpc-logger-name string                Name of the access log
+--http-grpc-logger-request-headers strings    access logs request headers
+--http-grpc-logger-response-headers strings   access logs response headers
+--http-grpc-logger-timeout duration           The timeout for the gRPC request (default 200ms)
+--ingress-classes strings                     Ingress classes to watch
+--key string                                  keyfile
+--kube-config stringArray                     Path to kube config
+--max-ejection-percentage int32               maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy. (default -1)
+--node-name string                            envoy node name
+--upstream-healthcheck-healthy uint32         number of successful healthchecks before the backend is considered healthy (default 3)
+--upstream-healthcheck-interval duration      duration of the upstream health check interval (default 10s)
+--upstream-healthcheck-timeout duration       timeout of the upstream healthchecks (default 5s)
+--upstream-healthcheck-unhealthy uint32       number of failed healthchecks before the backend is considered unhealthy (default 3)
+--upstream-port uint32                        port used to connect to the upstream ingresses (default 443)
+--use-remote-address                          populates the X-Forwarded-For header with the client address. Set to true when used as edge proxy
 ```
