@@ -139,7 +139,7 @@ func classFilter(ingresses []v1.Ingress, ingressClass []string) []v1.Ingress {
 
 	for _, i := range ingresses {
 		for _, class := range ingressClass {
-			if i.GetAnnotations()["kubernetes.io/ingress.class"] == class {
+			if i.GetAnnotations()["kubernetes.io/ingress.class"] == class || *i.Spec.IngressClassName == class {
 				is = append(is, i)
 			}
 		}
