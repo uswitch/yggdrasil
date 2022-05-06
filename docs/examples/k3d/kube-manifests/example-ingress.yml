@@ -1,0 +1,75 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echo-ingress
+  annotations:
+    yggdrasil.uswitch.com/healthcheck-path: /healthz
+    yggdrasil.uswitch.com/timeout: 30s
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: example.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: echo-service
+            port:
+              number: 80
+        path: /
+        pathType: ImplementationSpecific
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo-server
+  template:
+    metadata:
+      labels:
+        app: echo-server
+    spec:
+      containers:
+        - name: echo-server
+          image: jmalloc/echo-server
+          ports:
+            - name: http-port
+              containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+spec:
+  ports:
+    - name: http-port
+      port: 80
+      targetPort: http-port
+      protocol: TCP
+  selector:
+    app: echo-server
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echo-ingress-path1
+  annotations:
+    yggdrasil.uswitch.com/healthcheck-path: /healthz
+    yggdrasil.uswitch.com/timeout: 30s
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: example.net
+    http:
+      paths:
+      - backend:
+          service:
+            name: echo-service
+            port:
+              number: 80
+        path: /example
+        pathType: ImplementationSpecific

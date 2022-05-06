@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
 type IngressLister interface {
-	List() ([]v1beta1.Ingress, error)
+	List() ([]v1.Ingress, error)
 }
 
 //IngressAggregator used for running Ingress infomers
@@ -55,7 +55,7 @@ func (i *IngressAggregator) OnUpdate(old, new interface{}) {
 //AddSource adds a new source for watching ingresses, must be called before running
 func (i *IngressAggregator) AddSource(source cache.ListerWatcher) {
 	//Todo implement handler for events
-	store, controller := cache.NewIndexerInformer(source, &v1beta1.Ingress{}, time.Minute, i, cache.Indexers{})
+	store, controller := cache.NewIndexerInformer(source, &v1.Ingress{}, time.Minute, i, cache.Indexers{})
 	i.stores = append(i.stores, store)
 	i.controllers = append(i.controllers, controller)
 }
@@ -72,12 +72,12 @@ func NewIngressAggregator(sources []cache.ListerWatcher) *IngressAggregator {
 }
 
 //List returns all ingresses
-func (i *IngressAggregator) List() ([]v1beta1.Ingress, error) {
-	is := make([]v1beta1.Ingress, 0)
+func (i *IngressAggregator) List() ([]v1.Ingress, error) {
+	is := make([]v1.Ingress, 0)
 	for _, store := range i.stores {
 		ingresses := store.List()
 		for _, obj := range ingresses {
-			ingress, ok := obj.(*v1beta1.Ingress)
+			ingress, ok := obj.(*v1.Ingress)
 			if !ok {
 				return nil, fmt.Errorf("unexpected object in store: %+v", obj)
 			}

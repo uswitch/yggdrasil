@@ -1,0 +1,47 @@
+version: '3'
+services:
+
+  yggdrasil:
+    image: local-yggdrasil:latest
+    command: --config=config.yaml --debug --upstream-port=80
+    container_name: yggdrasil
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: yggdrasil
+      SERVICE_TAGS: dev
+    volumes:
+      - /vagrant/yggdrasil/config.yaml:/config.yaml
+      - /vagrant/yggdrasil/k3d-cluster1-ca.crt:/cluster1-ca.crt
+      - /vagrant/yggdrasil/k3d-cluster1-token:/cluster1-token
+      - /vagrant/yggdrasil/k3d-cluster2-ca.crt:/cluster2-ca.crt
+      - /vagrant/yggdrasil/k3d-cluster2-token:/cluster2-token
+    networks:
+      - k3d-cluster1
+      - k3d-cluster2
+
+  envoy:
+    image: envoyproxy/envoy:v1.19-latest
+    container_name: envoy
+    command: --service-node envoy-node --service-cluster envoy-node --config-path /etc/envoy/envoy.yaml
+    restart: unless-stopped
+    ports:
+      - 10000:10000
+      - 9901:9901
+    tty: true
+    environment:
+      ENVOY_UID: 0
+    working_dir: /var/log/envoy/
+    volumes:
+      - /vagrant/envoy/envoy.yml:/etc/envoy/envoy.yaml
+    networks:
+      - k3d-cluster1
+      - k3d-cluster2
+
+networks:
+  k3d-cluster1:
+    external:
+      name: k3d-cluster1
+  k3d-cluster2:
+    external:
+      name: k3d-cluster2

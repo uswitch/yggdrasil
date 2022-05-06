@@ -1,0 +1,16 @@
+{
+  "nodeName": "envoy-node",
+  "ingressClasses": ["nginx"],
+  "clusters": [
+    {
+      "apiServer": "https://k3d-cluster1-server-0:6443",
+      "ca": "cluster1-ca.crt",
+      "tokenPath": "cluster1-token"
+    },
+    {
+      "apiServer": "https://k3d-cluster2-server-0:6443",
+      "ca": "cluster2-ca.crt",
+      "tokenPath": "cluster2-token"
+    }
+  ]
+}

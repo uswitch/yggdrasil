@@ -1,0 +1,27 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: '*'
+  name: yggdrasil-read-only
+rules:
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: yggdrasil-sa-binding
+subjects:
+- kind: ServiceAccount
+  name: yggdrasil-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: yggdrasil-read-only
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: yggdrasil-sa
