@@ -1,0 +1,25 @@
+version: '3'
+services:
+
+  app:
+    image: golang:1.18.1-buster
+    container_name: yggdrasil-app
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    working_dir: /app
+    volumes:
+      - ./:/app
+    networks:
+      - app-network
+
+#Docker Networks
+networks:
+  app-network:
+    driver: bridge
+#Volumes
+volumes:
+  dbdata:
+    driver: local
