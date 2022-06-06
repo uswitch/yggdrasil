@@ -3,6 +3,7 @@ package envoy
 import (
 	"fmt"
 	"log"
+	"regexp"
 
 	cal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	v3cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -21,13 +22,15 @@ import (
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var (
-	jsonFormat *structpb.Struct
+	jsonFormat            *structpb.Struct
+	allowedRetryOnsRegexp string
 )
 
 func init() {
@@ -56,9 +59,18 @@ func init() {
 		log.Fatal(err)
 	}
 	jsonFormat = b.GetStructValue()
+
+	allowedRetryOns := "5xx|gateway-error|reset|connect-failure|envoy-ratelimited|retriable-4xx|refused-stream|retriable-status-codes|retriable-headers|http3-post-connect-failure"
+	allowedRetryOnsRegexp = fmt.Sprintf("^((%s)(,(%s))*)?$", allowedRetryOns, allowedRetryOns)
 }
 
-func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.VirtualHost {
+func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetryOn string) *route.VirtualHost {
+	var retryOn string
+	if vhost.RetryOn != "" {
+		retryOn = vhost.RetryOn
+	} else {
+		retryOn = defaultRetryOn
+	}
 
 	action := &route.Route_Route{
 		Route: &route.RouteAction{
@@ -67,7 +79,7 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.Virtu
 				Cluster: vhost.UpstreamCluster,
 			},
 			RetryPolicy: &route.RetryPolicy{
-				RetryOn:       "5xx",
+				RetryOn:       retryOn,
 				PerTryTimeout: &duration.Duration{Seconds: int64(vhost.PerTryTimeout.Seconds())},
 			},
 		},
@@ -438,4 +450,13 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	}
 
 	return cluster
+}
+
+func ValidateEnvoyRetryOn(retryOn string) bool {
+	matched, err := regexp.MatchString(allowedRetryOnsRegexp, retryOn)
+	if err != nil {
+		logrus.Debugf("error parsing regexp: %s", err)
+		return false
+	}
+	return matched
 }
