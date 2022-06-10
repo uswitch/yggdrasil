@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/networking/v1"
+	v1 "k8s.io/api/networking/v1"
 )
 
 func sortCluster(clusters []*cluster) {
@@ -136,11 +136,15 @@ func (cfg *envoyConfiguration) equals(oldCfg *envoyConfiguration) (vmatch bool, 
 
 func classFilter(ingresses []v1.Ingress, ingressClass []string) []v1.Ingress {
 	is := make([]v1.Ingress, 0)
-
 	for _, i := range ingresses {
-		for _, class := range ingressClass {
-			if i.GetAnnotations()["kubernetes.io/ingress.class"] == class || *i.Spec.IngressClassName == class {
-				is = append(is, i)
+		//	fmt.Println(i.Spec.IngressClassName)
+		if i.Spec.IngressClassName != nil {
+			for _, class := range ingressClass {
+				if i.GetAnnotations()["kubernetes.io/ingress.class"] == class || *i.Spec.IngressClassName == class {
+					is = append(is, i)
+				} else {
+					logrus.Debugf("the ingress class of %s is not %d", i.Name, class)
+				}
 			}
 		}
 	}
@@ -158,11 +162,12 @@ Ingress:
 				for _, k := range i.Spec.Rules {
 					if k.Host != "" {
 						vi = append(vi, i)
+					} else {
+						vi = append(vi, i)
+						logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
 						continue Ingress
 					}
 				}
-				logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
-				continue Ingress
 			}
 		}
 		logrus.Debugf("no hostname or ip for loadbalancer found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
@@ -225,8 +230,10 @@ func translateIngresses(ingresses []v1.Ingress) *envoyConfiguration {
 
 				if j.Hostname != "" {
 					envoyIngress.addUpstream(j.Hostname)
-				} else {
+				} else if j.IP != "" {
 					envoyIngress.addUpstream(j.IP)
+				} else {
+					envoyIngress.addUpstream("172.0.0.1")
 				}
 
 				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
