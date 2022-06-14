@@ -162,12 +162,11 @@ Ingress:
 				for _, k := range i.Spec.Rules {
 					if k.Host != "" {
 						vi = append(vi, i)
-					} else {
-						vi = append(vi, i)
-						logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
 						continue Ingress
 					}
 				}
+				logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
+				continue Ingress
 			}
 		}
 		logrus.Debugf("no hostname or ip for loadbalancer found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
@@ -230,10 +229,8 @@ func translateIngresses(ingresses []v1.Ingress) *envoyConfiguration {
 
 				if j.Hostname != "" {
 					envoyIngress.addUpstream(j.Hostname)
-				} else if j.IP != "" {
-					envoyIngress.addUpstream(j.IP)
 				} else {
-					envoyIngress.addUpstream("172.0.0.1")
+					envoyIngress.addUpstream(j.IP)
 				}
 
 				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
