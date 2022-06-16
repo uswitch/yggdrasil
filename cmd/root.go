@@ -20,7 +20,6 @@ import (
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -207,7 +206,7 @@ func main(*cobra.Command, []string) error {
 		c.Certificates[idx].Cert = string(certBytes)
 		c.Certificates[idx].Key = string(keyBytes)
 	}
-	lister := k8s.NewIngressAggregator(sources)
+	aggregator := k8s.NewAggregator(sources, ctx)
 	configurator := envoy.NewKubernetesConfigurator(
 		viper.GetString("nodeName"),
 		c.Certificates,
@@ -223,10 +222,10 @@ func main(*cobra.Command, []string) error {
 		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
 		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
 	)
-	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, lister)
+	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 
-	go snapshotter.Run(ctx)
-	lister.Run(ctx)
+	go snapshotter.Run(aggregator)
+	go aggregator.Run()
 
 	envoyServer := server.NewServer(ctx, envoyCache, &callbacks{})
 	go runEnvoyServer(envoyServer, viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
@@ -254,8 +253,8 @@ func createClientConfig(path string) (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags("", path)
 }
 
-func createSources(clusters []clusterConfig) ([]k8scache.ListerWatcher, error) {
-	sources := []k8scache.ListerWatcher{}
+func createSources(clusters []clusterConfig) ([]*kubernetes.Clientset, error) {
+	sources := []*kubernetes.Clientset{}
 
 	for _, cluster := range clusters {
 
@@ -282,14 +281,14 @@ func createSources(clusters []clusterConfig) ([]k8scache.ListerWatcher, error) {
 		if err != nil {
 			return sources, err
 		}
-		sources = append(sources, k8s.NewListWatch(clientSet))
+		sources = append(sources, clientSet)
 	}
 
 	return sources, nil
 }
 
-func configFromKubeConfig(paths []string) ([]k8scache.ListerWatcher, error) {
-	sources := []k8scache.ListerWatcher{}
+func configFromKubeConfig(paths []string) ([]*kubernetes.Clientset, error) {
+	sources := []*kubernetes.Clientset{}
 
 	for _, configPath := range paths {
 		config, err := createClientConfig(configPath)
@@ -300,7 +299,7 @@ func configFromKubeConfig(paths []string) ([]k8scache.ListerWatcher, error) {
 		if err != nil {
 			return sources, err
 		}
-		sources = append(sources, k8s.NewListWatch(clientSet))
+		sources = append(sources, clientSet)
 	}
 
 	return sources, nil

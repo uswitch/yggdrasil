@@ -1,8 +1,6 @@
 package envoy
 
 import (
-	"context"
-
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
@@ -21,16 +19,16 @@ type Configurator interface {
 type Snapshotter struct {
 	snapshotCache cache.SnapshotCache
 	configurator  Configurator
-	lister        *k8s.IngressAggregator
+	aggregator    *k8s.Aggregator
 }
 
 //NewSnapshotter returns a new Snapshotter
-func NewSnapshotter(snapshotCache cache.SnapshotCache, config Configurator, lister *k8s.IngressAggregator) *Snapshotter {
-	return &Snapshotter{snapshotCache: snapshotCache, configurator: config, lister: lister}
+func NewSnapshotter(snapshotCache cache.SnapshotCache, config Configurator, aggregator *k8s.Aggregator) *Snapshotter {
+	return &Snapshotter{snapshotCache: snapshotCache, configurator: config, aggregator: aggregator}
 }
 
 func (s *Snapshotter) snapshot() error {
-	ingresses, err := s.lister.List()
+	ingresses, err := s.aggregator.ListIngresses()
 	if err != nil {
 		return err
 	}
@@ -44,16 +42,21 @@ func (s *Snapshotter) snapshot() error {
 }
 
 //Run will periodically refresh the snapshot
-func (s *Snapshotter) Run(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-s.lister.Events():
-				s.snapshot()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+func (s *Snapshotter) Run(a *k8s.Aggregator) {
 	log.Infof("started snapshotter")
+	hadChanges := false
+	for event := range a.Events() {
+		change := false
+		switch event.SyncType {
+		case k8s.COMMAND:
+			if hadChanges {
+				s.snapshot()
+				hadChanges = false
+				continue
+			}
+		case k8s.INGRESS:
+			change = true
+		}
+		hadChanges = hadChanges || change
+	}
 }
