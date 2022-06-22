@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -38,7 +37,7 @@ func NewAggregator(k8sClients []*kubernetes.Clientset, ctx context.Context) *Agg
 	for _, c := range k8sClients {
 		factory := informers.NewSharedInformerFactory(c, time.Minute)
 
-		ingressInformer := factory.Extensions().V1beta1().Ingresses().Informer()
+		ingressInformer := getIngressInformer(factory, c)
 		a.EventsIngresses(ctx, ingressInformer)
 		a.ingressStores = append(a.ingressStores, ingressInformer.GetStore())
 
@@ -52,26 +51,36 @@ func NewAggregator(k8sClients []*kubernetes.Clientset, ctx context.Context) *Agg
 	return &a
 }
 
+func getIngressInformer(factory informers.SharedInformerFactory, clientSet *kubernetes.Clientset) (ingressInformer cache.SharedIndexInformer) {
+	for _, apiGroup := range []string{"networking.k8s.io/v1", "networking.k8s.io/v1beta1", "extensions/v1beta1"} {
+		resources, err := clientSet.ServerResourcesForGroupVersion(apiGroup)
+		if err != nil {
+			continue
+		}
+		for _, rs := range resources.APIResources {
+			if rs.Name == "ingresses" {
+				switch apiGroup {
+				case "networking.k8s.io/v1":
+					ingressInformer = factory.Networking().V1().Ingresses().Informer()
+				case "networking.k8s.io/v1beta1":
+					ingressInformer = factory.Networking().V1beta1().Ingresses().Informer()
+				case "extensions/v1beta1":
+					ingressInformer = factory.Extensions().V1beta1().Ingresses().Informer()
+				}
+				logrus.Infof("watching ingress resources of apiGroup %s", apiGroup)
+			}
+		}
+		if ingressInformer != nil {
+			break
+		}
+	}
+	return ingressInformer
+}
+
 // Run is the synchronization loop
 func (a *Aggregator) Run() {
 	for {
 		time.Sleep(5 * time.Second)
 		a.events <- SyncDataEvent{SyncType: COMMAND}
 	}
-}
-
-// ListIngresses returns all ingresses
-func (a *Aggregator) ListIngresses() ([]v1beta1.Ingress, error) {
-	is := make([]v1beta1.Ingress, 0)
-	for _, store := range a.ingressStores {
-		ingresses := store.List()
-		for _, obj := range ingresses {
-			ingress, ok := obj.(*v1beta1.Ingress)
-			if !ok {
-				return nil, fmt.Errorf("unexpected object in store: %+v", obj)
-			}
-			is = append(is, *ingress)
-		}
-	}
-	return is, nil
 }
