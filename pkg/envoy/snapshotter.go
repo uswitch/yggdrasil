@@ -5,7 +5,7 @@ import (
 
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/networking/v1"
+	v1 "k8s.io/api/networking/v1"
 
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
@@ -34,7 +34,6 @@ func (s *Snapshotter) snapshot() error {
 	if err != nil {
 		return err
 	}
-
 	snapshot := s.configurator.Generate(ingresses)
 
 	log.Debugf("took snapshot: %+v", snapshot)

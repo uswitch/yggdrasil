@@ -20,19 +20,20 @@ import (
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 type clusterConfig struct {
-	APIServer string `json:"apiServer"`
-	Ca        string `json:"ca"`
-	Token     string `json:"token"`
-	TokenPath string `json:"tokenPath"`
+	APIServer        string               `json:"apiServer"`
+	Ca               string               `json:"ca"`
+	Token            string               `json:"token"`
+	TokenPath        string               `json:"tokenPath"`
+	IngressEndpoints k8s.IngressEndpoints `json:"IngressEndpoints"`
 }
 
 type config struct {
 	IngressClass               string                    `json:"ingressClass"`
+	IngressNodeSelector        k8s.IngressNodeSelector   `json:"ingressNodeSelector"`
 	NodeName                   string                    `json:"nodeName"`
 	Clusters                   []clusterConfig           `json:"clusters"`
 	Certificates               []envoy.Certificate       `json:"certificates"`
@@ -157,7 +158,7 @@ func main(*cobra.Command, []string) error {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	clusterSources, err := createSources(c.Clusters)
+	clusterSources, err := createSources(c, c.Clusters)
 	if err != nil {
 		return fmt.Errorf("error creating sources: %s", err)
 	}
@@ -165,7 +166,7 @@ func main(*cobra.Command, []string) error {
 	stopCh := make(chan os.Signal, 1)
 	signal.Notify(stopCh, os.Interrupt, syscall.SIGTERM)
 
-	configSources, err := configFromKubeConfig(kubeConfig)
+	configSources, err := configFromKubeConfig(c, kubeConfig)
 	if err != nil {
 		return fmt.Errorf("error parsing kube config: %s", err)
 	}
@@ -254,9 +255,8 @@ func createClientConfig(path string) (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags("", path)
 }
 
-func createSources(clusters []clusterConfig) ([]k8scache.ListerWatcher, error) {
-	sources := []k8scache.ListerWatcher{}
-
+func createSources(c config, clusters []clusterConfig) ([]k8s.Ingresswatcher, error) {
+	sources := []k8s.Ingresswatcher{}
 	for _, cluster := range clusters {
 
 		var token string
@@ -282,15 +282,17 @@ func createSources(clusters []clusterConfig) ([]k8scache.ListerWatcher, error) {
 		if err != nil {
 			return sources, err
 		}
-		sources = append(sources, k8s.NewListWatch(clientSet))
+
+		watcher := k8s.Ingresswatcher{Watcher: k8s.NewListWatch(clientSet),
+			IngressEndpoints: k8s.ClusterLoadbalancersIp(c.IngressNodeSelector, cluster.IngressEndpoints, clientSet)}
+		sources = append(sources, watcher)
 	}
 
 	return sources, nil
 }
 
-func configFromKubeConfig(paths []string) ([]k8scache.ListerWatcher, error) {
-	sources := []k8scache.ListerWatcher{}
-
+func configFromKubeConfig(c config, paths []string) ([]k8s.Ingresswatcher, error) {
+	sources := []k8s.Ingresswatcher{}
 	for _, configPath := range paths {
 		config, err := createClientConfig(configPath)
 		if err != nil {
@@ -300,7 +302,9 @@ func configFromKubeConfig(paths []string) ([]k8scache.ListerWatcher, error) {
 		if err != nil {
 			return sources, err
 		}
-		sources = append(sources, k8s.NewListWatch(clientSet))
+		watcher := k8s.Ingresswatcher{Watcher: k8s.NewListWatch(clientSet),
+			IngressEndpoints: k8s.ClusterLoadbalancersIp(c.IngressNodeSelector, nil, clientSet)}
+		sources = append(sources, watcher)
 	}
 
 	return sources, nil
