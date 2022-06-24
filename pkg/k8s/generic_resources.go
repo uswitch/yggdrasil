@@ -2,6 +2,8 @@ package k8s
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -25,11 +27,6 @@ type Ingress struct {
 type IngressTLS struct {
 	Host       string
 	SecretName string
-}
-
-// IngressRule is useful data from k8s structures about ingress rule
-type IngressRule struct {
-	Host string
 }
 
 // Get ingresses from stores and convert them to apiGroup-agnostic ingresses
@@ -184,4 +181,37 @@ func convertNetworkingv1Ingress(i *networkingv1.Ingress) *Ingress {
 			return
 		}(i.Spec.TLS),
 	}
+}
+
+func GenericIngressEqual(a, b *Ingress) bool {
+	if a.Name != b.Name ||
+		a.Namespace != b.Namespace ||
+		!deepStringEqualIgnoreOrder(a.RulesHosts, b.RulesHosts) ||
+		!deepStringEqualIgnoreOrder(a.Upstreams, b.Upstreams) ||
+		!reflect.DeepEqual(a.Annotations, b.Annotations) ||
+		!reflect.DeepEqual(a.TLS, b.TLS) {
+		return false
+	}
+
+	if a.getUsableIngressClass() != b.getUsableIngressClass() {
+		return false
+	}
+
+	return true
+}
+
+func (ing *Ingress) getUsableIngressClass() string {
+	if ing.Annotations["kubernetes.io/ingress.class"] != "" {
+		return ing.Annotations["kubernetes.io/ingress.class"]
+	}
+	if ing.Class != nil {
+		return *ing.Class
+	}
+	return ""
+}
+
+func deepStringEqualIgnoreOrder(a, b []string) bool {
+	sort.Strings(a)
+	sort.Strings(b)
+	return reflect.DeepEqual(a, b)
 }

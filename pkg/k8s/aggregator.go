@@ -80,7 +80,7 @@ func getIngressInformer(factory informers.SharedInformerFactory, clientSet *kube
 // Run is the synchronization loop
 func (a *Aggregator) Run() {
 	for {
-		time.Sleep(5 * time.Second)
 		a.events <- SyncDataEvent{SyncType: COMMAND}
+		time.Sleep(5 * time.Second)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/uswitch/yggdrasil/pkg/k8s"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -109,10 +110,10 @@ func TestEqualityVirtualHosts(t *testing.T) {
 }
 
 func TestEquals(t *testing.T) {
-	ingress := newIngress("foo.app.com", "foo.cluster.com")
-	ingress2 := newIngress("bar.app.com", "foo.bar.com")
-	c := translateIngresses([]v1beta1.Ingress{ingress, ingress2})
-	c2 := translateIngresses([]v1beta1.Ingress{ingress, ingress2})
+	ingress := newGenericIngress("foo.app.com", "foo.cluster.com")
+	ingress2 := newGenericIngress("bar.app.com", "foo.bar.com")
+	c := translateIngresses([]*k8s.Ingress{ingress, ingress2})
+	c2 := translateIngresses([]*k8s.Ingress{ingress, ingress2})
 
 	vmatch, cmatch := c.equals(c2)
 	if vmatch != true {
@@ -124,12 +125,12 @@ func TestEquals(t *testing.T) {
 }
 
 func TestNotEquals(t *testing.T) {
-	ingress := newIngress("foo.bar.com", "bar.cluster.com")
-	ingress2 := newIngress("foo.app.com", "bar.cluster.com")
-	ingress3 := newIngress("foo.baz.com", "bar.cluster.com")
-	ingress4 := newIngress("foo.howdy.com", "bar.cluster.com")
-	c := translateIngresses([]v1beta1.Ingress{ingress, ingress3, ingress2})
-	c2 := translateIngresses([]v1beta1.Ingress{ingress, ingress2, ingress4})
+	ingress := newGenericIngress("foo.bar.com", "bar.cluster.com")
+	ingress2 := newGenericIngress("foo.app.com", "bar.cluster.com")
+	ingress3 := newGenericIngress("foo.baz.com", "bar.cluster.com")
+	ingress4 := newGenericIngress("foo.howdy.com", "bar.cluster.com")
+	c := translateIngresses([]*k8s.Ingress{ingress, ingress3, ingress2})
+	c2 := translateIngresses([]*k8s.Ingress{ingress, ingress2, ingress4})
 
 	vmatch, cmatch := c.equals(c2)
 	if vmatch == true {
@@ -142,10 +143,10 @@ func TestNotEquals(t *testing.T) {
 }
 
 func TestPartialEquals(t *testing.T) {
-	ingress := newIngress("foo.app.com", "bar.cluster.com")
-	ingress2 := newIngress("foo.app.com", "foo.cluster.com")
-	c := translateIngresses([]v1beta1.Ingress{ingress2})
-	c2 := translateIngresses([]v1beta1.Ingress{ingress})
+	ingress := newGenericIngress("foo.app.com", "bar.cluster.com")
+	ingress2 := newGenericIngress("foo.app.com", "foo.cluster.com")
+	c := translateIngresses([]*k8s.Ingress{ingress2})
+	c2 := translateIngresses([]*k8s.Ingress{ingress})
 
 	vmatch, cmatch := c2.equals(c)
 	if vmatch != true {
@@ -158,8 +159,8 @@ func TestPartialEquals(t *testing.T) {
 }
 
 func TestGeneratesForSingleIngress(t *testing.T) {
-	ingress := newIngress("foo.app.com", "foo.cluster.com")
-	c := translateIngresses([]v1beta1.Ingress{ingress})
+	ingress := newGenericIngress("foo.app.com", "foo.cluster.com")
+	c := translateIngresses([]*k8s.Ingress{ingress})
 
 	if len(c.VirtualHosts) != 1 {
 		t.Error("expected 1 virtual host")
@@ -189,9 +190,9 @@ func TestGeneratesForSingleIngress(t *testing.T) {
 }
 
 func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
-	fooIngress := newIngress("app.com", "foo.com")
-	barIngress := newIngress("app.com", "bar.com")
-	c := translateIngresses([]v1beta1.Ingress{fooIngress, barIngress})
+	fooIngress := newGenericIngress("app.com", "foo.com")
+	barIngress := newGenericIngress("app.com", "bar.com")
+	c := translateIngresses([]*k8s.Ingress{fooIngress, barIngress})
 
 	if len(c.VirtualHosts) != 1 {
 		t.Error("expected 1 virtual host")
@@ -224,8 +225,8 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 }
 
 func TestFilterMatchingIngresses(t *testing.T) {
-	ingress := []v1beta1.Ingress{
-		newIngress("host", "balancer"),
+	ingress := []*k8s.Ingress{
+		newGenericIngress("host", "balancer"),
 	}
 	ingressClasses := []string{"bar"}
 	matchingIngresses := classFilter(ingress, ingressClasses)
@@ -234,8 +235,8 @@ func TestFilterMatchingIngresses(t *testing.T) {
 	}
 }
 func TestFilterNonMatchingIngresses(t *testing.T) {
-	ingress := []v1beta1.Ingress{
-		newIngress("host", "balancer"),
+	ingress := []*k8s.Ingress{
+		newGenericIngress("host", "balancer"),
 	}
 	ingressClasses := []string{"another-class"}
 	matchingIngresses := classFilter(ingress, ingressClasses)
@@ -246,15 +247,15 @@ func TestFilterNonMatchingIngresses(t *testing.T) {
 
 func TestIngressWithIP(t *testing.T) {
 	ingress := newIngressIP("app.com", "127.0.0.1")
-	c := translateIngresses([]v1beta1.Ingress{ingress})
+	c := translateIngresses([]*k8s.Ingress{ingress})
 	if c.Clusters[0].Hosts[0] != "127.0.0.1" {
 		t.Errorf("expected cluster host to be IP address, was %s", c.Clusters[0].Hosts[0])
 	}
 }
 
 func TestIngressFilterWithValidConfigWithHostname(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngress("app.com", "foo.com"),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("app.com", "foo.com"),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 1 {
@@ -263,8 +264,8 @@ func TestIngressFilterWithValidConfigWithHostname(t *testing.T) {
 }
 
 func TestIngressFilterWithValidConfigWithIP(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngressIP("app.com", "127.0.0.1"),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("app.com", "127.0.0.1"),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 1 {
@@ -273,8 +274,8 @@ func TestIngressFilterWithValidConfigWithIP(t *testing.T) {
 }
 
 func TestIngressFilterWithNoHost(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngress("", "foo.com"),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("", "foo.com"),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 0 {
@@ -283,8 +284,8 @@ func TestIngressFilterWithNoHost(t *testing.T) {
 }
 
 func TestIngressFilterWithNoLoadBalancerHostName(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngress("app.com", ""),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("app.com", ""),
 	}
 	matchingIngresses := validIngressFilter(ingresses)
 	if len(matchingIngresses) != 0 {
@@ -316,26 +317,22 @@ func newIngress(specHost string, loadbalancerHost string) v1beta1.Ingress {
 	}
 }
 
-func newIngressIP(specHost string, loadbalancerHost string) v1beta1.Ingress {
-	return v1beta1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class": "bar",
-			},
+func newGenericIngress(specHost string, loadbalancerHost string) *k8s.Ingress {
+	return &k8s.Ingress{
+		Annotations: map[string]string{
+			"kubernetes.io/ingress.class": "bar",
 		},
-		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{
-				{
-					Host: specHost,
-				},
-			},
+		RulesHosts: []string{specHost},
+		Upstreams:  []string{loadbalancerHost},
+	}
+}
+
+func newIngressIP(specHost string, loadbalancerHost string) *k8s.Ingress {
+	return &k8s.Ingress{
+		Annotations: map[string]string{
+			"kubernetes.io/ingress.class": "bar",
 		},
-		Status: v1beta1.IngressStatus{
-			LoadBalancer: v1.LoadBalancerStatus{
-				Ingress: []v1.LoadBalancerIngress{
-					{IP: loadbalancerHost},
-				},
-			},
-		},
+		RulesHosts: []string{specHost},
+		Upstreams:  []string{loadbalancerHost},
 	}
 }
