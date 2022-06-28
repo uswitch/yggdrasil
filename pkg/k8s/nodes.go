@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -27,7 +28,7 @@ func ClusterLoadbalancersIp(Nodeselector IngressNodeSelector, Endpoints IngressE
 			}
 			nodes, err := clientSet.CoreV1().Nodes().List(context.TODO(), listOptions)
 			if err != nil {
-				panic(err)
+				logrus.Debugf("can't get node information %s", err)
 			}
 			for i := 0; i < len(nodes.Items); i++ {
 				nodeip := []corev1.NodeAddress{}

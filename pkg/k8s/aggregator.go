@@ -16,7 +16,7 @@ type IngressLister interface {
 	List() ([]v1.Ingress, error)
 }
 type Ingresswatcher struct {
-	Watcher          *cache.ListWatch
+	Watcher          cache.ListerWatcher
 	IngressEndpoints []string
 }
 

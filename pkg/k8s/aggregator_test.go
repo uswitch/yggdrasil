@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"k8s.io/api/networking/v1"
-	"k8s.io/client-go/tools/cache"
+	v1 "k8s.io/api/networking/v1"
 	kt "k8s.io/client-go/tools/cache/testing"
 )
 
 func TestListReturnsEmptyWithNoObjects(t *testing.T) {
 	source := kt.NewFakeControllerSource()
-	a := NewIngressAggregator([]cache.ListerWatcher{source})
+	watchlist := Ingresswatcher{Watcher: source, IngressEndpoints: []string{"127.0.0.1"}}
+	a := NewIngressAggregator([]Ingresswatcher{watchlist})
 	go reader(context.Background(), a.Events())
 	a.Run(context.Background())
 
@@ -24,8 +24,8 @@ func TestListReturnsEmptyWithNoObjects(t *testing.T) {
 func TestReturnsIngresses(t *testing.T) {
 	source := kt.NewFakeControllerSource()
 	source.Add(&v1.Ingress{})
-
-	a := NewIngressAggregator([]cache.ListerWatcher{source})
+	watchlist := Ingresswatcher{Watcher: source, IngressEndpoints: []string{"127.0.0.1"}}
+	a := NewIngressAggregator([]Ingresswatcher{watchlist})
 	go reader(context.Background(), a.Events())
 	a.Run(context.Background())
 
@@ -43,8 +43,9 @@ func TestReturnsFromMultipleIngressControllers(t *testing.T) {
 	source1.Add(&v1.Ingress{})
 	source2 := kt.NewFakeControllerSource()
 	source2.Add(&v1.Ingress{})
-
-	a := NewIngressAggregator([]cache.ListerWatcher{source1, source2})
+	watchlist1 := Ingresswatcher{Watcher: source1, IngressEndpoints: []string{"127.0.0.1"}}
+	watchlist2 := Ingresswatcher{Watcher: source2, IngressEndpoints: []string{"192.168.1.1"}}
+	a := NewIngressAggregator([]Ingresswatcher{watchlist1, watchlist2})
 	go reader(context.Background(), a.Events())
 	a.Run(context.Background())
 
