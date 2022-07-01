@@ -2,4 +2,5 @@ bin/
 command
 testing
 .vagrant
+.vscode
 docs/examples/k3d/yggdrasil/k3d-cluster*
