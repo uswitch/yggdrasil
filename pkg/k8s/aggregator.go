@@ -97,7 +97,7 @@ func (i *IngressAggregator) List() ([]v1.Ingress, error) {
 					logrus.Debugf("ip address would be %s", i.IngressEndpoints[ip])
 					ingress.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: i.IngressEndpoints[ip]}}
 				} else {
-					logrus.Debugf("the ingress ip address are empty %s", i.IngressEndpoints)
+					logrus.Debugf("the ingress ip address is empty %s", i.IngressEndpoints)
 				}
 			}
 			is = append(is, *ingress)
