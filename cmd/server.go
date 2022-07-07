@@ -39,7 +39,7 @@ func (c *callbacks) OnStreamClosed(int64) {}
 func (c *callbacks) OnStreamRequest(int64, *discovery.DiscoveryRequest) error {
 	return nil
 }
-func (c *callbacks) OnStreamResponse(int64, *discovery.DiscoveryRequest, *discovery.DiscoveryResponse) {
+func (c *callbacks) OnStreamResponse(context.Context, int64, *discovery.DiscoveryRequest, *discovery.DiscoveryResponse) {
 }
 func (c *callbacks) OnFetchRequest(context.Context, *discovery.DiscoveryRequest) error {
 	c.fetchReq++
@@ -58,7 +58,7 @@ func runEnvoyServer(envoyServer server.Server, address string, healthAddress str
 
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		log.Fatal("failed to listen")
+		log.Fatal("failed to listen %s", err)
 	}
 
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoyServer)
