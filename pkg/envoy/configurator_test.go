@@ -7,23 +7,23 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/golang/protobuf/ptypes"
-
-	"k8s.io/api/networking/v1"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	v1 "k8s.io/api/networking/v1"
 )
 
 func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain, expected int) {
 	var connManager hcm.HttpConnectionManager
-	var dynamicAny ptypes.DynamicAny
+	var Message proto.Message
 
-	err := ptypes.UnmarshalAny(filterChain.Filters[0].GetTypedConfig(), &dynamicAny)
+	Message, err := anypb.UnmarshalNew(filterChain.Filters[0].GetTypedConfig(), proto.UnmarshalOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	structMessage, err := util.MessageToStruct(dynamicAny.Message)
+	structMessage, err := util.MessageToStruct(Message)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain,
 }
 
 func assertTlsCertificate(t *testing.T, filterChain listener.FilterChain, expectedCert, expectedKey string) {
-	certificate := filterChain.HiddenEnvoyDeprecatedTlsContext.CommonTlsContext.TlsCertificates[0]
+	certificate := tls.TlsCertificate{}
 
 	certFile := certificate.CertificateChain.Specifier.(*core.DataSource_InlineString)
 	keyFile := certificate.PrivateKey.Specifier.(*core.DataSource_InlineString)
