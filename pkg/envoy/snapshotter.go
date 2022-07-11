@@ -38,7 +38,7 @@ func (s *Snapshotter) snapshot() error {
 
 	log.Debugf("took snapshot: %+v", snapshot)
 
-	s.snapshotCache.SetSnapshot(s.configurator.NodeID(), snapshot)
+	s.snapshotCache.SetSnapshot(context.TODO(), s.configurator.NodeID(), &snapshot)
 	return nil
 }
 
