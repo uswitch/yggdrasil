@@ -294,8 +294,7 @@ func TestIngressFilterWithNoLoadBalancerHostName(t *testing.T) {
 
 func newIngress(specHost string, loadbalancerHost string) networkingv1.Ingress {
 	var ingressClassName string = "bar"
-	var ingressClassPointer *string
-	ingressClassPointer = &ingressClassName
+	ingressClassPointer := &ingressClassName
 	return networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{

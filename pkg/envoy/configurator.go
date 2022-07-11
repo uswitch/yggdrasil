@@ -13,7 +13,7 @@ import (
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
-	"k8s.io/api/networking/v1"
+	v1 "k8s.io/api/networking/v1"
 )
 
 type Certificate struct {
@@ -111,7 +111,7 @@ func (c *KubernetesConfigurator) NodeID() string {
 
 }
 
-var errNoCertificateMatch = errors.New("No certificate match")
+var errNoCertificateMatch = errors.New("no certificate match")
 
 func compareHosts(pattern, host string) bool {
 	patternParts := strings.Split(pattern, ".")
