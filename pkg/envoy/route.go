@@ -173,8 +173,8 @@ func (pc *PrefixMatchCondition) String() string {
 	return str
 }
 
-func stringTohash(s v1.IngressRule) uint32 {
+func stringTohash(s string) uint32 {
 	h := fnv.New32a()
-	h.Write([]byte(fmt.Sprintf("%v", s)))
+	h.Write([]byte(s))
 	return h.Sum32()
 }

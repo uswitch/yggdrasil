@@ -253,7 +253,7 @@ func translateIngresses(ingresses []v1.Ingress) *envoyConfiguration {
 					path := stringOrDefault(httppath.Path, "/")
 					// Default to implementation specific path matching if not set.
 					pathType := derefPathTypeOr(httppath.PathType, v1.PathTypeImplementationSpecific)
-					clustername := fmt.Sprint(strings.Replace(rule.Host, ".", "_", -1), stringTohash(rule))
+					clustername := fmt.Sprint(strings.Replace(rule.Host, ".", "_", -1), stringTohash(httppath.Path))
 					virtualHost.addlocalroute(clustername, RouteMatch(Pathtranslate(path, pathType)))
 					cluster.addclustername(clustername)
 					fmt.Println(clustername, path)
