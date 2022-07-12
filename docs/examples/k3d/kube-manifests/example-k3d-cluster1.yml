@@ -6,7 +6,7 @@ metadata:
     yggdrasil.uswitch.com/healthcheck-path: /healthz
     yggdrasil.uswitch.com/timeout: 30s
 spec:
-  ingressClassName: nginx
+  ingressClassName: haproxy
   rules:
   - host: cluster1.example.org
     http:
