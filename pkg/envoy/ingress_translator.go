@@ -154,7 +154,7 @@ func classFilter(ingresses []v1.Ingress, ingressClass []string) []v1.Ingress {
 				if i.GetAnnotations()["kubernetes.io/ingress.class"] == class || *i.Spec.IngressClassName == class {
 					is = append(is, i)
 				} else {
-					logrus.Debugf("the ingress class of %s is not %d", i.Name, &class)
+					logrus.Debugf("the ingress class of %s is not %d", i.Name, class)
 				}
 			}
 		}
