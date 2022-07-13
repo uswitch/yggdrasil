@@ -172,15 +172,12 @@ func TestGeneratesForSingleIngress(t *testing.T) {
 		t.Error("expected 1 clusters")
 	}
 
-	if c.Clusters[0].Name != "foo_app_com" {
-		t.Errorf("expected cluster to be named after ingress host, was %s", c.Clusters[0].Name)
-	}
 	if c.Clusters[0].Hosts[0] != "foo.cluster.com" {
 		t.Errorf("expected cluster host for foo.cluster.com, was %s", c.Clusters[0].Hosts[0])
 	}
 
-	if c.VirtualHosts[0].UpstreamCluster != c.Clusters[0].Name {
-		t.Errorf("expected upstream cluster of vHost the same as the generated cluster, was %s and %s", c.VirtualHosts[0].UpstreamCluster, c.Clusters[0].Name)
+	if c.VirtualHosts[0].Routes[0].UpstreamCluster != c.Clusters[0].Name {
+		t.Errorf("expected upstream cluster of vHost the same as the generated cluster, was %s and %s", c.VirtualHosts[0].Routes[0].UpstreamCluster, c.Clusters[0].Name)
 	}
 
 	if c.Clusters[0].VirtualHost != "foo.app.com" {
@@ -204,10 +201,6 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 		t.Errorf("expected 1 clusters, was %d", len(c.Clusters))
 	}
 
-	if c.Clusters[0].Name != "app_com" {
-		t.Errorf("expected cluster to be named after ingress host, was %s", c.Clusters[0].Name)
-	}
-
 	if len(c.Clusters[0].Hosts) != 2 {
 		t.Errorf("expected 2 host, was %d", len(c.Clusters[0].Hosts))
 	}
@@ -218,8 +211,8 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 		t.Errorf("expected cluster host for bar.com, was %s", c.Clusters[0].Hosts[1])
 	}
 
-	if c.VirtualHosts[0].UpstreamCluster != c.Clusters[0].Name {
-		t.Errorf("expected upstream cluster of vHost the same as the generated cluster, was %s and %s", c.VirtualHosts[0].UpstreamCluster, c.Clusters[0].Name)
+	if c.VirtualHosts[0].Routes[0].UpstreamCluster != c.Clusters[0].Name {
+		t.Errorf("expected upstream cluster of vHost the same as the generated cluster, was %s and %s", c.VirtualHosts[0].Routes[0].UpstreamCluster, c.Clusters[0].Name)
 	}
 }
 
@@ -295,6 +288,7 @@ func TestIngressFilterWithNoLoadBalancerHostName(t *testing.T) {
 func newIngress(specHost string, loadbalancerHost string) networkingv1.Ingress {
 	var ingressClassName string = "bar"
 	ingressClassPointer := &ingressClassName
+	var pathPrefix networkingv1.PathType = networkingv1.PathTypePrefix
 	return networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -306,6 +300,24 @@ func newIngress(specHost string, loadbalancerHost string) networkingv1.Ingress {
 			Rules: []networkingv1.IngressRule{
 				{
 					Host: specHost,
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathPrefix,
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "http-svc",
+											Port: networkingv1.ServiceBackendPort{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -320,6 +332,7 @@ func newIngress(specHost string, loadbalancerHost string) networkingv1.Ingress {
 }
 
 func newIngressIP(specHost string, loadbalancerHost string) networkingv1.Ingress {
+	var pathPrefix networkingv1.PathType = networkingv1.PathTypePrefix
 	return networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -330,6 +343,24 @@ func newIngressIP(specHost string, loadbalancerHost string) networkingv1.Ingress
 			Rules: []networkingv1.IngressRule{
 				{
 					Host: specHost,
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathPrefix,
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "http-svc",
+											Port: networkingv1.ServiceBackendPort{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

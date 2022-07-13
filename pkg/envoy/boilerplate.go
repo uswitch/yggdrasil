@@ -59,41 +59,40 @@ func init() {
 }
 
 func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.VirtualHost {
-
-	action := &route.Route_Route{
-		Route: &route.RouteAction{
-			Timeout: &duration.Duration{Seconds: int64(vhost.Timeout.Seconds())},
-			ClusterSpecifier: &route.RouteAction_Cluster{
-				Cluster: vhost.UpstreamCluster,
-			},
-			RetryPolicy: &route.RetryPolicy{
-				RetryOn:       "5xx",
-				PerTryTimeout: &duration.Duration{Seconds: int64(vhost.PerTryTimeout.Seconds())},
-			},
-		},
-	}
-
-	if reselectionAttempts >= 0 {
-		action.Route.RetryPolicy.RetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
-			{
-				Name: "envoy.retry_host_predicates.previous_hosts",
+	routes := []*route.Route{}
+	for _, matched := range vhost.Routes {
+		action := &route.Route_Route{
+			Route: &route.RouteAction{
+				Timeout: &duration.Duration{Seconds: int64(vhost.Timeout.Seconds())},
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: matched.UpstreamCluster,
+				},
+				RetryPolicy: &route.RetryPolicy{
+					RetryOn:       "5xx",
+					PerTryTimeout: &duration.Duration{Seconds: int64(vhost.PerTryTimeout.Seconds())},
+				},
 			},
 		}
-		action.Route.RetryPolicy.HostSelectionRetryMaxAttempts = reselectionAttempts
+
+		if reselectionAttempts >= 0 {
+			action.Route.RetryPolicy.RetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
+				{
+					Name: "envoy.retry_host_predicates.previous_hosts",
+				},
+			}
+			action.Route.RetryPolicy.HostSelectionRetryMaxAttempts = reselectionAttempts
+		}
+
+		make := route.Route{
+			Match:  matched.Route,
+			Action: action,
+		}
+		routes = append(routes, &make)
 	}
 	virtualHost := route.VirtualHost{
 		Name:    "local_service",
 		Domains: []string{vhost.Host},
-		Routes: []*route.Route{
-			{
-				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{
-						Prefix: "/",
-					},
-				},
-				Action: action,
-			},
-		},
+		Routes:  routes,
 	}
 	return &virtualHost
 }
