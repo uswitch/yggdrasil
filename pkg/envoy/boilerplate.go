@@ -294,7 +294,7 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 }
 
 func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) *listener.Listener {
-	TlsInspectorType, err := anypb.New(&tlslitener.TlsInspector{})
+	TlsInspectorType, err := anypb.New(&tlslistener.TlsInspector{})
 	if err != nil {
 		logrus.Debugf("tls listner type is not ok %s", err)
 	}
