@@ -11,8 +11,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
-	types "github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
 	v1 "k8s.io/api/networking/v1"
 )
 
@@ -163,13 +162,8 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 	for _, virtualHost := range config.VirtualHosts {
 		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
 	}
-
 	httpConnectionManager := c.makeConnectionManager(virtualHosts)
-	httpConfig, err := util.MessageToStruct(httpConnectionManager)
-	if err != nil {
-		log.Fatalf("failed to convert virtualHost to envoy control plane struct: %s", err)
-	}
-	anyHttpConfig, err := types.MarshalAny(httpConfig)
+	anyHttpConfig, err := anypb.New(httpConnectionManager)
 	if err != nil {
 		log.Fatalf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}

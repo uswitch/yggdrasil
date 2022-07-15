@@ -14,13 +14,14 @@ import (
 	gal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	eauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	hcfg "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
+	tlslitener "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
-	types "github.com/golang/protobuf/ptypes"
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -153,22 +154,18 @@ func makeGrpcLoggerConfig(cfg HttpGrpcLogger) *gal.HttpGrpcAccessLogConfig {
 
 func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
 	// Access Logs
-	accessLogConfig, err := util.MessageToStruct(
-		&eal.FileAccessLog{
-			Path: "/var/log/envoy/access.log",
-			AccessLogFormat: &eal.FileAccessLog_LogFormat{
-				LogFormat: &core.SubstitutionFormatString{
-					Format: &core.SubstitutionFormatString_JsonFormat{
-						JsonFormat: jsonFormat,
-					},
+	accessLogConfig := &eal.FileAccessLog{
+		Path: "/var/log/envoy/access.log",
+		AccessLogFormat: &eal.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: jsonFormat,
 				},
 			},
 		},
-	)
-	if err != nil {
-		log.Fatalf("failed to convert access log proto message to struct: %s", err)
 	}
-	anyAccessLogConfig, err := types.MarshalAny(accessLogConfig)
+
+	anyAccessLogConfig, err := anypb.New(accessLogConfig)
 	if err != nil {
 		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)
 	}
@@ -181,11 +178,9 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	}
 
 	if c.httpGrpcLogger.Cluster != "" {
-		grpcLoggerConfig, err := util.MessageToStruct(makeGrpcLoggerConfig(c.httpGrpcLogger))
-		if err != nil {
-			log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
-		}
-		anyGrpcLoggerConfig, err := types.MarshalAny(grpcLoggerConfig)
+		grpcLoggerConfig := makeGrpcLoggerConfig(c.httpGrpcLogger)
+
+		anyGrpcLoggerConfig, err := anypb.New(grpcLoggerConfig)
 		if err != nil {
 			log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 		}
@@ -198,11 +193,9 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	// HTTP Filters
 	filterBuilder := &httpFilterBuilder{}
 
-	healthConfig, err := util.MessageToStruct(makeHealthConfig())
-	if err != nil {
-		log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
-	}
-	anyHealthConfig, err := types.MarshalAny(healthConfig)
+	healthConfig := makeHealthConfig()
+
+	anyHealthConfig, err := anypb.New(healthConfig)
 	if err != nil {
 		log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 	}
@@ -213,11 +206,8 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	})
 
 	if c.httpExtAuthz.Cluster != "" {
-		extAuthzConfig, err := util.MessageToStruct(makeExtAuthzConfig(c.httpExtAuthz))
-		if err != nil {
-			log.Fatalf("failed to convert extAuthz proto message to struct: %s", err)
-		}
-		anyExtAuthzConfig, err := types.MarshalAny(extAuthzConfig)
+		extAuthzConfig := makeExtAuthzConfig(c.httpExtAuthz)
+		anyExtAuthzConfig, err := anypb.New(extAuthzConfig)
 		if err != nil {
 			log.Fatalf("failed to marshal extAuthz config struct to typed struct: %s", err)
 		}
@@ -251,15 +241,10 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 
 func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
 	httpConnectionManager := c.makeConnectionManager(virtualHosts)
-	httpConfig, err := util.MessageToStruct(httpConnectionManager)
-	if err != nil {
-		return listener.FilterChain{}, fmt.Errorf("failed to convert virtualHost to envoy control plane struct: %s", err)
-	}
-	anyHttpConfig, err := types.MarshalAny(httpConfig)
+	anyHttpConfig, err := anypb.New(httpConnectionManager)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
-
 	tls := &auth.DownstreamTlsContext{}
 	tls.CommonTlsContext = &auth.CommonTlsContext{
 		TlsCertificates: []*auth.TlsCertificate{
@@ -274,7 +259,7 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 		},
 	}
 
-	anyTls, err := types.MarshalAny(tls)
+	anyTls, err := anypb.New(tls)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
 	}
@@ -309,7 +294,10 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 }
 
 func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) *listener.Listener {
-
+	TlsInspectorType, err := anypb.New(&tlslitener.TlsInspector{})
+	if err != nil {
+		logrus.Debugf("tls listner type is not ok %s", err)
+	}
 	listener := listener.Listener{
 		Name: "listener_0",
 		Address: &core.Address{
@@ -323,7 +311,7 @@ func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address
 			},
 		},
 		ListenerFilters: []*listener.ListenerFilter{
-			{Name: "envoy.filters.listener.tls_inspector"},
+			{Name: "envoy.filters.listener.tls_inspector", ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: TlsInspectorType}},
 		},
 		FilterChains: filterChains,
 		// Setting the TrafficDirection here for tracing
@@ -396,7 +384,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	var anyTls *any.Any
 
 	if tls != nil {
-		anyTls, err = types.MarshalAny(tls)
+		anyTls, err = anypb.New(tls)
 		if err != nil {
 			log.Printf("Error marhsalling cluster TLS config: %s", err)
 		}
