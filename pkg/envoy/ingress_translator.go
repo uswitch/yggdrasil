@@ -71,7 +71,7 @@ type virtualHost struct {
 
 type Localroute struct {
 	UpstreamCluster string
-	Route           *envoy_route_v3.RouteMatch
+	Route           envoy_route_v3.RouteMatch
 }
 
 type key struct {
@@ -216,7 +216,7 @@ func (ing *virtualHost) addVhostTimeout(timeout time.Duration) {
 	ing.PerTryTimeout = timeout
 }
 
-func (ing *virtualHost) addlocalroute(clusternmae string, route *envoy_route_v3.RouteMatch) {
+func (ing *virtualHost) addlocalroute(clusternmae string, route envoy_route_v3.RouteMatch) {
 	make := Localroute{Route: route, UpstreamCluster: clusternmae}
 	ing.Routes = append(ing.Routes, &make)
 }

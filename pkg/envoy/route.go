@@ -116,10 +116,10 @@ func Pathtranslate(path string, pathtype v1.PathType) *Route {
 }
 
 // RouteMatch creates a *envoy_route_v3.RouteMatch for the supplied *dag.Route.
-func RouteMatch(route *Route) *envoy_route_v3.RouteMatch {
+func RouteMatch(route *Route) envoy_route_v3.RouteMatch {
 	switch c := route.PathMatchCondition.(type) {
 	case *RegexMatchCondition:
-		return &envoy_route_v3.RouteMatch{
+		return envoy_route_v3.RouteMatch{
 			PathSpecifier: &envoy_route_v3.RouteMatch_SafeRegex{
 				// Add an anchor since we at the very least have a / as a string literal prefix.
 				// Reduces regex program size so Envoy doesn't reject long prefix matches.
@@ -129,7 +129,7 @@ func RouteMatch(route *Route) *envoy_route_v3.RouteMatch {
 	case *PrefixMatchCondition:
 		switch c.PrefixMatchType {
 		case PrefixMatchSegment:
-			return &envoy_route_v3.RouteMatch{
+			return envoy_route_v3.RouteMatch{
 				PathSpecifier: &envoy_route_v3.RouteMatch_PathSeparatedPrefix{
 					PathSeparatedPrefix: c.Prefix,
 				},
@@ -137,20 +137,20 @@ func RouteMatch(route *Route) *envoy_route_v3.RouteMatch {
 		case PrefixMatchString:
 			fallthrough
 		default:
-			return &envoy_route_v3.RouteMatch{
+			return envoy_route_v3.RouteMatch{
 				PathSpecifier: &envoy_route_v3.RouteMatch_Prefix{
 					Prefix: c.Prefix,
 				},
 			}
 		}
 	case *ExactMatchCondition:
-		return &envoy_route_v3.RouteMatch{
+		return envoy_route_v3.RouteMatch{
 			PathSpecifier: &envoy_route_v3.RouteMatch_Path{
 				Path: c.Path,
 			},
 		}
 	default:
-		return &envoy_route_v3.RouteMatch{}
+		return envoy_route_v3.RouteMatch{}
 	}
 }
 

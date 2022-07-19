@@ -3,6 +3,7 @@ package envoy
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	cal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	v3cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -61,6 +62,10 @@ func init() {
 
 func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.VirtualHost {
 	routes := []*route.Route{}
+	// sort vhosts routes to make sure the bigger matching url is first
+	sort.Slice(vhost.Routes, func(i, j int) bool {
+		return len(vhost.Routes[i].Route.String()) > len(vhost.Routes[j].Route.String())
+	})
 	for _, matched := range vhost.Routes {
 		action := &route.Route_Route{
 			Route: &route.RouteAction{
@@ -85,7 +90,7 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.Virtu
 		}
 
 		make := route.Route{
-			Match:  matched.Route,
+			Match:  &matched.Route,
 			Action: action,
 		}
 		routes = append(routes, &make)
