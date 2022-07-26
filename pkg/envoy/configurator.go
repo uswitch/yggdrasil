@@ -49,6 +49,7 @@ type HttpGrpcLogger struct {
 type KubernetesConfigurator struct {
 	ingressClasses             []string
 	nodeID                     string
+	syncSecrets                bool
 	certificates               []Certificate
 	trustCA                    string
 	upstreamPort               uint32
@@ -81,7 +82,8 @@ func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress) cache.Snapsh
 	c.Lock()
 	defer c.Unlock()
 
-	config := translateIngresses(validIngressFilter(classFilter(ingresses, c.ingressClasses)))
+	validIngresses := validIngressFilter(classFilter(ingresses, c.ingressClasses))
+	config := translateIngresses(validIngresses, c.syncSecrets)
 
 	vmatch, cmatch := config.equals(c.previousConfig)
 
@@ -111,7 +113,7 @@ func (c *KubernetesConfigurator) NodeID() string {
 
 }
 
-var errNoCertificateMatch = errors.New("No certificate match")
+var errNoCertificateMatch = errors.New("no certificate match")
 
 func compareHosts(pattern, host string) bool {
 	patternParts := strings.Split(pattern, ".")

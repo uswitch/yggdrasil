@@ -206,7 +206,7 @@ func (ing *envoyIngress) addTimeout(timeout time.Duration) {
 	ing.vhost.PerTryTimeout = timeout
 }
 
-func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
+func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
 
@@ -221,8 +221,6 @@ func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
 				envoyIngress := envoyIngresses[ruleHost]
 
 				envoyIngress.addUpstream(j)
-
-				// TODO handle spec ingressClass
 
 				if i.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {
 					envoyIngress.addHealthCheckPath(i.Annotations["yggdrasil.uswitch.com/healthcheck-path"])

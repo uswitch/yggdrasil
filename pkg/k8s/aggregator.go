@@ -6,6 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/extensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -20,6 +21,7 @@ type Aggregator struct {
 	factories     []*informers.SharedInformerFactory
 	events        chan SyncDataEvent
 	ingressStores []cache.Store
+	secretsStore  []cache.Store
 }
 
 func (a *Aggregator) Events() chan SyncDataEvent {
@@ -27,7 +29,7 @@ func (a *Aggregator) Events() chan SyncDataEvent {
 }
 
 // NewAggregator returns a new Aggregator initialized with resource informers
-func NewAggregator(k8sClients []*kubernetes.Clientset, ctx context.Context) *Aggregator {
+func NewAggregator(k8sClients []*kubernetes.Clientset, ctx context.Context, syncSecrets bool) *Aggregator {
 	a := Aggregator{
 		events:        make(chan SyncDataEvent, watch.DefaultChanSize),
 		ingressStores: []cache.Store{},
@@ -43,6 +45,19 @@ func NewAggregator(k8sClients []*kubernetes.Clientset, ctx context.Context) *Agg
 
 		a.factories = append(a.factories, &factory)
 		informersSynced = append(informersSynced, ingressInformer.HasSynced)
+
+		if syncSecrets {
+			tlsFilter := informers.WithTweakListOptions(func(lo *metav1.ListOptions) {
+				lo.FieldSelector = "type=kubernetes.io/tls"
+			})
+			// using new factory here to apply filter to secrets lister only
+			// see https://github.com/kubernetes/kubernetes/issues/90262#issuecomment-671479190
+			secretsFactory := informers.NewSharedInformerFactoryWithOptions(c, time.Minute, tlsFilter)
+			secretsInformer := secretsFactory.Core().V1().Secrets().Informer()
+			a.EventsSecrets(ctx, secretsInformer)
+			a.secretsStore = append(a.secretsStore, secretsInformer.GetStore())
+			informersSynced = append(informersSynced, secretsInformer.HasSynced)
+		}
 	}
 
 	if !cache.WaitForCacheSync(ctx.Done(), informersSynced...) {

@@ -64,3 +64,10 @@ func WithHttpGrpcLogger(httpGrpcLogger HttpGrpcLogger) option {
 		c.httpGrpcLogger = httpGrpcLogger
 	}
 }
+
+// WithSyncSecrets configures the syncSecrets option
+func WithSyncSecrets(syncSecrets bool) option {
+	return func(c *KubernetesConfigurator) {
+		c.syncSecrets = syncSecrets
+	}
+}

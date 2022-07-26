@@ -34,6 +34,7 @@ type config struct {
 	IngressClass               string                    `json:"ingressClass"`
 	NodeName                   string                    `json:"nodeName"`
 	Clusters                   []clusterConfig           `json:"clusters"`
+	SyncSecrets                bool                      `json:"syncSecrets"`
 	Certificates               []envoy.Certificate       `json:"certificates"`
 	TrustCA                    string                    `json:"trustCA"`
 	UpstreamPort               uint32                    `json:"upstreamPort"`
@@ -156,6 +157,10 @@ func main(*cobra.Command, []string) error {
 		log.SetLevel(log.DebugLevel)
 	}
 
+	if c.SyncSecrets && len(c.Certificates) > 0 {
+		return fmt.Errorf("syncSecrets is mutually exclusive with certificates")
+	}
+
 	clusterSources, err := createSources(c.Clusters)
 	if err != nil {
 		return fmt.Errorf("error creating sources: %s", err)
@@ -182,7 +187,7 @@ func main(*cobra.Command, []string) error {
 		log.Fatalf("TLS setup failed: %s", err)
 	}
 
-	if len(c.Certificates) == 0 && viper.GetString("cert") != "" && viper.GetString("key") != "" {
+	if !c.SyncSecrets && len(c.Certificates) == 0 && viper.GetString("cert") != "" && viper.GetString("key") != "" {
 		c.Certificates = []envoy.Certificate{
 			{Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key")},
 		}
@@ -206,7 +211,7 @@ func main(*cobra.Command, []string) error {
 		c.Certificates[idx].Cert = string(certBytes)
 		c.Certificates[idx].Key = string(keyBytes)
 	}
-	aggregator := k8s.NewAggregator(sources, ctx)
+	aggregator := k8s.NewAggregator(sources, ctx, c.SyncSecrets)
 	configurator := envoy.NewKubernetesConfigurator(
 		viper.GetString("nodeName"),
 		c.Certificates,
@@ -221,6 +226,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithUseRemoteAddress(c.UseRemoteAddress),
 		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
 		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
+		envoy.WithSyncSecrets(c.SyncSecrets),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 

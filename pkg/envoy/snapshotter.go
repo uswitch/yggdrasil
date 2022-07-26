@@ -60,6 +60,8 @@ func (s *Snapshotter) Run(a *k8s.Aggregator) {
 			}
 		case k8s.INGRESS:
 			change = true
+		case k8s.SECRET:
+			change = true
 		}
 		hadChanges = hadChanges || change
 	}
