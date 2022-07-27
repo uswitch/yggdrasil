@@ -14,6 +14,7 @@ import (
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
 	"github.com/uswitch/yggdrasil/pkg/k8s"
+	v1 "k8s.io/api/core/v1"
 )
 
 type Certificate struct {
@@ -78,12 +79,12 @@ func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca str
 }
 
 //Generate creates a new snapshot
-func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress) cache.Snapshot {
+func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress, secrets []*v1.Secret) cache.Snapshot {
 	c.Lock()
 	defer c.Unlock()
 
 	validIngresses := validIngressFilter(classFilter(ingresses, c.ingressClasses))
-	config := translateIngresses(validIngresses, c.syncSecrets)
+	config := translateIngresses(validIngresses, c.syncSecrets, secrets)
 
 	vmatch, cmatch := config.equals(c.previousConfig)
 

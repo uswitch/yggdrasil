@@ -2,9 +2,11 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -28,11 +30,27 @@ func (a *Aggregator) Events() chan SyncDataEvent {
 	return a.events
 }
 
+func (a *Aggregator) GetSecrets() ([]*v1.Secret, error) {
+	allSecrets := make([]*v1.Secret, 0)
+	for _, store := range a.secretsStore {
+		secrets := store.List()
+		for _, obj := range secrets {
+			secret, ok := obj.(*v1.Secret)
+			if !ok {
+				return nil, fmt.Errorf("unexpected object in store: %+v", obj)
+			}
+			allSecrets = append(allSecrets, secret)
+		}
+	}
+	return allSecrets, nil
+}
+
 // NewAggregator returns a new Aggregator initialized with resource informers
 func NewAggregator(k8sClients []*kubernetes.Clientset, ctx context.Context, syncSecrets bool) *Aggregator {
 	a := Aggregator{
 		events:        make(chan SyncDataEvent, watch.DefaultChanSize),
 		ingressStores: []cache.Store{},
+		secretsStore:  []cache.Store{},
 	}
 	informersSynced := []cache.InformerSynced{}
 
