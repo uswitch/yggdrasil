@@ -81,7 +81,9 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 	return v.Host == other.Host &&
 		v.Timeout == other.Timeout &&
 		v.UpstreamCluster == other.UpstreamCluster &&
-		v.PerTryTimeout == other.PerTryTimeout
+		v.PerTryTimeout == other.PerTryTimeout &&
+		v.TlsKey == other.TlsKey &&
+		v.TlsCert == other.TlsCert
 }
 
 type cluster struct {
@@ -257,6 +259,8 @@ func validateTlsSecret(secret *v1.Secret) error {
 		return errors.New("empty 'tls.crt' or 'tls.key'")
 	}
 
+	// TODO discard P-384 EC private keys
+	// see https://github.com/envoyproxy/envoy/issues/10855
 	return nil
 }
 
