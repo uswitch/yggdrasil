@@ -1,7 +1,9 @@
 package envoy
 
 import (
-	"errors"
+	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"regexp"
 	"sort"
@@ -247,21 +249,37 @@ func getHostTlsSecret(ingress *k8s.Ingress, host string, secrets []*v1.Secret) (
 }
 
 // validateTlsSecret checks that the given secret holds valid tls certificate and key
-func validateTlsSecret(secret *v1.Secret) error {
+func validateTlsSecret(secret *v1.Secret) (bool, error) {
 	tlsCert, certOk := secret.Data["tls.crt"]
 	tlsKey, keyOk := secret.Data["tls.key"]
 
 	if !certOk || !keyOk {
-		return errors.New("missing 'tls.crt' or 'tls.key'")
+		logrus.Debugf("skipping certificate %s/%s: missing 'tls.crt' or 'tls.key'", secret.Namespace, secret.Name)
+		return false, nil
 	}
-
 	if len(tlsCert) == 0 || len(tlsKey) == 0 {
-		return errors.New("empty 'tls.crt' or 'tls.key'")
+		logrus.Debugf("skipping certificate %s/%s: empty 'tls.crt' or 'tls.key'", secret.Namespace, secret.Name)
+		return false, nil
 	}
 
-	// TODO discard P-384 EC private keys
+	// discard P-384 EC private keys
 	// see https://github.com/envoyproxy/envoy/issues/10855
-	return nil
+	block, _ := pem.Decode(tlsCert)
+	x509crt, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return false, fmt.Errorf("error parsing x509 certificate: %s", err.Error())
+	}
+	if x509crt.PublicKeyAlgorithm == x509.ECDSA {
+		ecdsaPub, ok := x509crt.PublicKey.(*ecdsa.PublicKey)
+		if !ok {
+			return false, fmt.Errorf("error in *ecdsa.PublicKey type assertion")
+		}
+		if ecdsaPub.Curve.Params().BitSize > 256 {
+			logrus.Infof("skipping ECDSA %s certificate %s/%s: only P-256 certificates are supported", ecdsaPub.Curve.Params().Name, secret.Namespace, secret.Name)
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret) *envoyConfiguration {
@@ -292,11 +310,12 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 
 				if syncSecrets && envoyIngress.vhost.TlsKey == "" && envoyIngress.vhost.TlsCert == "" {
 					if hostTlsSecret, err := getHostTlsSecret(i, ruleHost, secrets); err != nil {
-						logrus.Warn(err.Error())
+						logrus.Debug(err.Error())
 					} else {
-						if err := validateTlsSecret(hostTlsSecret); err != nil {
+						valid, err := validateTlsSecret(hostTlsSecret)
+						if err != nil {
 							logrus.Warnf("secret %s/%s is not valid: %s", hostTlsSecret.Namespace, hostTlsSecret.Name, err.Error())
-						} else {
+						} else if valid {
 							envoyIngress.vhost.TlsKey = string(hostTlsSecret.Data["tls.key"])
 							envoyIngress.vhost.TlsCert = string(hostTlsSecret.Data["tls.crt"])
 						}
