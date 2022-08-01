@@ -169,9 +169,14 @@ func (c *KubernetesConfigurator) generateDynamicTLSFilterChains(config *envoyCon
 	for _, virtualHost := range config.VirtualHosts {
 		envoyVhost := makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts)
 		if virtualHost.TlsCert == "" || virtualHost.TlsKey == "" {
-			// TODO handle default dummy cert
-			logrus.Warnf("skipping vhost because of no certificate: %s", virtualHost.Host)
-			continue
+			if len(c.certificates) == 0 {
+				logrus.Warnf("skipping vhost because of no certificate: %s", virtualHost.Host)
+				continue
+			} else {
+				logrus.Infof("using default certificate for %s", virtualHost.Host)
+				virtualHost.TlsCert = c.certificates[0].Cert
+				virtualHost.TlsKey = c.certificates[0].Key
+			}
 		}
 		certificate := Certificate{
 			Hosts: []string{virtualHost.Host},

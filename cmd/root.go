@@ -157,8 +157,8 @@ func main(*cobra.Command, []string) error {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	if c.SyncSecrets && len(c.Certificates) > 0 {
-		return fmt.Errorf("syncSecrets is mutually exclusive with certificates")
+	if c.SyncSecrets && len(c.Certificates) > 1 {
+		return fmt.Errorf("only one certificate can be declared when syncSecrets is true")
 	}
 
 	clusterSources, err := createSources(c.Clusters)
@@ -187,7 +187,7 @@ func main(*cobra.Command, []string) error {
 		log.Fatalf("TLS setup failed: %s", err)
 	}
 
-	if !c.SyncSecrets && len(c.Certificates) == 0 && viper.GetString("cert") != "" && viper.GetString("key") != "" {
+	if len(c.Certificates) == 0 && viper.GetString("cert") != "" && viper.GetString("key") != "" {
 		c.Certificates = []envoy.Certificate{
 			{Hosts: []string{"*"}, Cert: viper.GetString("cert"), Key: viper.GetString("key")},
 		}
