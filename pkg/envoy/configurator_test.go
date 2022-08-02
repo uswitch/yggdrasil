@@ -11,6 +11,7 @@ import (
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/uswitch/yggdrasil/pkg/k8s"
+	v1 "k8s.io/api/core/v1"
 )
 
 func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain, expected int) {
@@ -79,7 +80,7 @@ func TestGenerate(t *testing.T) {
 		{Hosts: []string{"*"}, Cert: "b", Key: "c"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
 
 	if len(snapshot.Resources[tcache.Listener].Items) != 1 {
 		t.Fatalf("Num listeners: %d", len(snapshot.Resources[tcache.Listener].Items))
@@ -100,7 +101,7 @@ func TestGenerateMultipleCerts(t *testing.T) {
 		{Hosts: []string{"*.internal.api.co.uk"}, Cert: "couk", Key: "couk"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 2 {
@@ -121,7 +122,7 @@ func TestGenerateMultipleHosts(t *testing.T) {
 		{Hosts: []string{"*.internal.api.com", "*.internal.api.co.uk"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 1 {
@@ -142,7 +143,7 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 1 {
@@ -160,7 +161,7 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 		{Hosts: []string{"*"}, Cert: "all", Key: "all"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 2 {
