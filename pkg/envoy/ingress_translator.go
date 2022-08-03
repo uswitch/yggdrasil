@@ -254,11 +254,11 @@ func validateTlsSecret(secret *v1.Secret) (bool, error) {
 	tlsKey, keyOk := secret.Data["tls.key"]
 
 	if !certOk || !keyOk {
-		logrus.Debugf("skipping certificate %s/%s: missing 'tls.crt' or 'tls.key'", secret.Namespace, secret.Name)
+		logrus.Infof("skipping certificate %s/%s: missing 'tls.crt' or 'tls.key'", secret.Namespace, secret.Name)
 		return false, nil
 	}
 	if len(tlsCert) == 0 || len(tlsKey) == 0 {
-		logrus.Debugf("skipping certificate %s/%s: empty 'tls.crt' or 'tls.key'", secret.Namespace, secret.Name)
+		logrus.Infof("skipping certificate %s/%s: empty 'tls.crt' or 'tls.key'", secret.Namespace, secret.Name)
 		return false, nil
 	}
 
@@ -313,7 +313,7 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 
 				if syncSecrets && envoyIngress.vhost.TlsKey == "" && envoyIngress.vhost.TlsCert == "" {
 					if hostTlsSecret, err := getHostTlsSecret(i, ruleHost, secrets); err != nil {
-						logrus.Debug(err.Error())
+						logrus.Infof(err.Error())
 					} else {
 						valid, err := validateTlsSecret(hostTlsSecret)
 						if err != nil {
