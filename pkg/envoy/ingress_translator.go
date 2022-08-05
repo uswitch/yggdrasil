@@ -168,6 +168,7 @@ func validIngressFilter(ingresses []v1.Ingress) []v1.Ingress {
 
 Ingress:
 	for _, i := range ingresses {
+<<<<<<< Updated upstream
 		for _, j := range i.Status.LoadBalancer.Ingress {
 			if j.Hostname != "" || j.IP != "" {
 				for _, k := range i.Spec.Rules {
@@ -175,6 +176,13 @@ Ingress:
 						vi = append(vi, i)
 						continue Ingress
 					}
+=======
+		if i.Status.LoadBalancer.Ingress != nil || i.Annotations["yggdrasil.uswitch.com/ingressendpoints"] != "" {
+			for _, k := range i.Spec.Rules {
+				if k.Host != "" {
+					vi = append(vi, i)
+					continue Ingress
+>>>>>>> Stashed changes
 				}
 				logrus.Debugf("no host found in ingress config for: %+v in namespace: %+v", i.Name, i.Namespace)
 				continue Ingress
@@ -244,9 +252,17 @@ func translateIngresses(ingresses []v1.Ingress) *envoyConfiguration {
 
 				for _, httppath := range httppaths(rule) {
 
+<<<<<<< Updated upstream
 					_, exist := clusters[key{host: rule.Host, path: httppath.Path}]
 					if !exist {
 						clusters[key{host: rule.Host, path: httppath.Path}] = newCluster(rule.Host)
+=======
+				virtualHost.addlocalroute(clustername, RouteMatch(Pathtranslate(path, pathType)))
+				cluster.addclustername(clustername)
+				if i.Annotations["yggdrasil.uswitch.com/ingressendpoints"] != "" {
+					for _, ip := range strings.Split(i.Annotations["yggdrasil.uswitch.com/ingressendpoints"], ",") {
+						cluster.addUpstream(ip)
+>>>>>>> Stashed changes
 					}
 					cluster := clusters[key{host: rule.Host, path: httppath.Path}]
 
