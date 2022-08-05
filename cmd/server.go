@@ -58,7 +58,9 @@ func runEnvoyServer(envoyServer server.Server, address string, healthAddress str
 
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		log.Fatal("failed to listen %s", err)
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Fatal("failed to listen address")
 	}
 
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoyServer)
