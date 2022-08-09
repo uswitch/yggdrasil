@@ -166,17 +166,20 @@ func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) [
 
 func (c *KubernetesConfigurator) generateDynamicTLSFilterChains(config *envoyConfiguration) []*listener.FilterChain {
 	filterChains := []*listener.FilterChain{}
+
+	allVhosts := []*route.VirtualHost{}
+
 	for _, virtualHost := range config.VirtualHosts {
 		envoyVhost := makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts)
+		allVhosts = append(allVhosts, envoyVhost)
+
 		if virtualHost.TlsCert == "" || virtualHost.TlsKey == "" {
 			if len(c.certificates) == 0 {
 				logrus.Warnf("skipping vhost because of no certificate: %s", virtualHost.Host)
-				continue
 			} else {
 				logrus.Infof("using default certificate for %s", virtualHost.Host)
-				virtualHost.TlsCert = c.certificates[0].Cert
-				virtualHost.TlsKey = c.certificates[0].Key
 			}
+			continue
 		}
 		certificate := Certificate{
 			Hosts: []string{virtualHost.Host},
@@ -188,6 +191,19 @@ func (c *KubernetesConfigurator) generateDynamicTLSFilterChains(config *envoyCon
 			logrus.Warnf("error making filter chain: %v", err)
 		}
 		filterChains = append(filterChains, &filterChain)
+	}
+
+	if len(c.certificates) == 1 {
+		defaultCert := Certificate{
+			Hosts: []string{"*"},
+			Cert:  c.certificates[0].Cert,
+			Key:   c.certificates[0].Key,
+		}
+		if defaultFC, err := c.makeFilterChain(defaultCert, allVhosts); err != nil {
+			logrus.Warnf("error making default filter chain: %v", err)
+		} else {
+			filterChains = append(filterChains, &defaultFC)
+		}
 	}
 
 	return filterChains
