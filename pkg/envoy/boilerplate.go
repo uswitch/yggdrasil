@@ -74,10 +74,8 @@ func init() {
 }
 
 func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetryOn string) *route.VirtualHost {
-	var retryOn string
-	if vhost.RetryOn != "" {
-		retryOn = vhost.RetryOn
-	} else {
+	retryOn := vhost.RetryOn
+	if retryOn == "" {
 		retryOn = defaultRetryOn
 	}
 
