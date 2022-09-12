@@ -400,14 +400,14 @@ func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address
 	return &listener, nil
 }
 
-func makeAddresses(addresses []string, upstreamPort uint32) []*core.Address {
+func makeAddresses(addresses []LBHost, upstreamPort uint32) []*core.Address {
 
 	envoyAddresses := []*core.Address{}
 	for _, address := range addresses {
 		envoyAddress := &core.Address{
 			Address: &core.Address_SocketAddress{
 				SocketAddress: &core.SocketAddress{
-					Address: address,
+					Address: address.Host,
 					PortSpecifier: &core.SocketAddress_PortValue{
 						PortValue: upstreamPort,
 					},
@@ -475,7 +475,8 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 
 	for idx, address := range addresses {
 		endpoints[idx] = &endpoint.LbEndpoint{
-			HostIdentifier: &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Address: address}},
+			HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Address: address}},
+			LoadBalancingWeight: &wrappers.UInt32Value{Value: c.Hosts[idx].Weight},
 		}
 	}
 
