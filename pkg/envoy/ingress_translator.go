@@ -228,6 +228,18 @@ func (ing *envoyIngress) addTimeout(timeout time.Duration) {
 	ing.vhost.PerTryTimeout = timeout
 }
 
+func (ing *envoyIngress) setClusterTimeout(timeout time.Duration) {
+	ing.cluster.Timeout = timeout
+}
+
+func (ing *envoyIngress) setRouteTimeout(timeout time.Duration) {
+	ing.vhost.Timeout = timeout
+}
+
+func (ing *envoyIngress) setPerTryTimeout(timeout time.Duration) {
+	ing.vhost.PerTryTimeout = timeout
+}
+
 // hostMatch returns true if tlsHost and ruleHost match, with wildcard support
 //
 // *.a.b ruleHost accepts tlsHost *.a.b but not a.a.b or a.b or a.a.a.b
@@ -338,6 +350,27 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/timeout"])
 					if err == nil {
 						envoyIngress.addTimeout(timeout)
+					}
+				}
+
+				if i.Annotations["yggdrasil.uswitch.com/cluster-timeout"] != "" {
+					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/cluster-timeout"])
+					if err == nil {
+						envoyIngress.setClusterTimeout(timeout)
+					}
+				}
+
+				if i.Annotations["yggdrasil.uswitch.com/route-timeout"] != "" {
+					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/route-timeout"])
+					if err == nil {
+						envoyIngress.setRouteTimeout(timeout)
+					}
+				}
+
+				if i.Annotations["yggdrasil.uswitch.com/per-try-timeout"] != "" {
+					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/per-try-timeout"])
+					if err == nil {
+						envoyIngress.setPerTryTimeout(timeout)
 					}
 				}
 
