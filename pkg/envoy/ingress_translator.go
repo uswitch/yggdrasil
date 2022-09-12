@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -90,12 +91,17 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 		v.RetryOn == other.RetryOn
 }
 
+type LBHost struct {
+	Host   string
+	Weight uint32
+}
+
 type cluster struct {
 	Name            string
 	VirtualHost     string
 	HealthCheckPath string
 	Timeout         time.Duration
-	Hosts           []string
+	Hosts           []LBHost
 }
 
 func (c *cluster) identity() string {
@@ -127,8 +133,12 @@ func (c *cluster) Equals(other *cluster) bool {
 		return false
 	}
 
-	sort.Strings(c.Hosts)
-	sort.Strings(other.Hosts)
+	sort.Slice(c.Hosts[:], func(i, j int) bool {
+		return c.Hosts[i].Host < c.Hosts[j].Host
+	})
+	sort.Slice(other.Hosts[:], func(i, j int) bool {
+		return other.Hosts[i].Host < other.Hosts[j].Host
+	})
 
 	for i, host := range c.Hosts {
 		if host != other.Hosts[i] {
@@ -197,15 +207,15 @@ func newEnvoyIngress(host string) *envoyIngress {
 		cluster: &cluster{
 			Name:            clusterName,
 			VirtualHost:     host,
-			Hosts:           []string{},
+			Hosts:           []LBHost{},
 			Timeout:         (30 * time.Second),
 			HealthCheckPath: "",
 		},
 	}
 }
 
-func (ing *envoyIngress) addUpstream(host string) {
-	ing.cluster.Hosts = append(ing.cluster.Hosts, host)
+func (ing *envoyIngress) addUpstream(host string, weight uint32) {
+	ing.cluster.Hosts = append(ing.cluster.Hosts, LBHost{host, weight})
 }
 
 func (ing *envoyIngress) addHealthCheckPath(path string) {
@@ -311,7 +321,14 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 				}
 
 				envoyIngress := envoyIngresses[ruleHost]
-				envoyIngress.addUpstream(j)
+
+				if weight64, err := strconv.ParseUint(i.Annotations["yggdrasil.uswitch.com/weight"], 10, 32); err == nil {
+					if weight64 != 0 {
+						envoyIngress.addUpstream(j, uint32(weight64))
+					}
+				} else {
+					envoyIngress.addUpstream(j, 1)
+				}
 
 				if i.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {
 					envoyIngress.addHealthCheckPath(i.Annotations["yggdrasil.uswitch.com/healthcheck-path"])
