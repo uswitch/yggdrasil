@@ -72,6 +72,13 @@ func WithSyncSecrets(syncSecrets bool) option {
 	}
 }
 
+// WithDefaultTimeouts configures the default timeouts
+func WithDefaultTimeouts(defaultTimeouts DefaultTimeouts) option {
+	return func(c *KubernetesConfigurator) {
+		c.defaultTimeouts = defaultTimeouts
+	}
+}
+
 // WithDefaultRetryOn configures the default retry policy
 func WithDefaultRetryOn(defaultRetryOn string) option {
 	return func(c *KubernetesConfigurator) {
