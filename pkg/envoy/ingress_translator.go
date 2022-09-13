@@ -195,20 +195,20 @@ type envoyIngress struct {
 	cluster *cluster
 }
 
-func newEnvoyIngress(host string) *envoyIngress {
+func newEnvoyIngress(host string, timeouts DefaultTimeouts) *envoyIngress {
 	clusterName := strings.Replace(host, ".", "_", -1)
 	return &envoyIngress{
 		vhost: &virtualHost{
 			Host:            host,
 			UpstreamCluster: clusterName,
-			Timeout:         (15 * time.Second),
-			PerTryTimeout:   (5 * time.Second),
+			Timeout:         timeouts.Route,
+			PerTryTimeout:   timeouts.PerTry,
 		},
 		cluster: &cluster{
 			Name:            clusterName,
 			VirtualHost:     host,
 			Hosts:           []LBHost{},
-			Timeout:         (30 * time.Second),
+			Timeout:         timeouts.Cluster,
 			HealthCheckPath: "",
 		},
 	}
@@ -320,7 +320,7 @@ func (envoyIng *envoyIngress) addRetryOn(ingress *k8s.Ingress) {
 	}
 }
 
-func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret) *envoyConfiguration {
+func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret, timeouts DefaultTimeouts) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
 
@@ -329,7 +329,7 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 			for _, ruleHost := range i.RulesHosts {
 				_, ok := envoyIngresses[ruleHost]
 				if !ok {
-					envoyIngresses[ruleHost] = newEnvoyIngress(ruleHost)
+					envoyIngresses[ruleHost] = newEnvoyIngress(ruleHost, timeouts)
 				}
 
 				envoyIngress := envoyIngresses[ruleHost]

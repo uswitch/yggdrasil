@@ -46,6 +46,7 @@ type config struct {
 	UseRemoteAddress           bool                      `json:"useRemoteAddress"`
 	HttpExtAuthz               envoy.HttpExtAuthz        `json:"httpExtAuthz"`
 	HttpGrpcLogger             envoy.HttpGrpcLogger      `json:"httpGrpcLogger"`
+	DefaultTimeouts            envoy.DefaultTimeouts     `json:"defaultTimeouts"`
 	AccessLogger               envoy.AccessLogger        `json:"accessLogger"`
 }
 
@@ -109,6 +110,9 @@ func init() {
 	rootCmd.PersistentFlags().Bool("http-ext-authz-pack-as-bytes", false, "When this field is true, Envoy will send the body as raw bytes.")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-failure-mode-allow", true, "Changes filters behaviour on errors")
 
+	rootCmd.PersistentFlags().Duration("default-route-timeout", 15*time.Second, "Default timeout of the routes")
+	rootCmd.PersistentFlags().Duration("default-cluster-timeout", 30*time.Second, "Default timeout of the cluster")
+	rootCmd.PersistentFlags().Duration("default-per-try-timeout", 5*time.Second, "Default timeout of PerTry")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("configDump", rootCmd.PersistentFlags().Lookup("config-dump"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
@@ -141,6 +145,9 @@ func init() {
 	viper.BindPFlag("httpExtAuthz.allowPartialMessage", rootCmd.PersistentFlags().Lookup("http-ext-authz-allow-partial-message"))
 	viper.BindPFlag("httpExtAuthz.packAsBytes", rootCmd.PersistentFlags().Lookup("http-ext-authz-pack-as-bytes"))
 	viper.BindPFlag("httpExtAuthz.FailureModeAllow", rootCmd.PersistentFlags().Lookup("http-ext-authz-failure-mode-allow"))
+	viper.BindPFlag("defaultTimeouts.Route", rootCmd.PersistentFlags().Lookup("default-route-timeout"))
+	viper.BindPFlag("defaultTimeouts.Cluster", rootCmd.PersistentFlags().Lookup("default-cluster-timeout"))
+	viper.BindPFlag("defaultTimeouts.PerTry", rootCmd.PersistentFlags().Lookup("default-per-try-timeout"))
 }
 
 func initConfig() {
@@ -241,6 +248,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
 		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
 		envoy.WithSyncSecrets(c.SyncSecrets),
+		envoy.WithDefaultTimeouts(c.DefaultTimeouts),
 		envoy.WithDefaultRetryOn(viper.GetString("retryOn")),
 		envoy.WithAccessLog(c.AccessLogger),
 		envoy.WithTracingProvider(viper.GetString("tracingProvider")),
