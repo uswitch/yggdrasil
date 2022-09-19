@@ -96,7 +96,7 @@ The `yggdrasil.uswitch.com/route-timeout` annotation will set the [config.route.
 
 the `yggdrasil.uswitch.com/per-try-timeout` annotation will set the [config.route.v3.RetryPolicy.PerTryTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-per-try-timeout)
 
-The `yggdrasil.uswitch.com/timeout` annotation will set all of the above with the same value. This annotation has the lowest priority, if it set with one of the other TO annotation, the specific one will override the general annotation.
+The `yggdrasil.uswitch.com/timeout` annotation will set all of the above with the same value. This annotation has the lowest priority, if set with one of the other TO annotations, the specific one will override the general annotation.
 
 
 ### Weight
