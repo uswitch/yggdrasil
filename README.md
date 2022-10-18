@@ -76,6 +76,7 @@ Yggdrasil allows for some customisation of the route and cluster config per Ingr
 |--------------------------------------------------------------|----------|
 | [yggdrasil.uswitch.com/healthcheck-path](#health-check-path) | string   |
 | [yggdrasil.uswitch.com/timeout](#timeout)                    | duration |
+| [yggdrasil.uswitch.com/retry-on](#retries)                   | string   |
 
 ### Health Check Path
 Specifies a path to configure a [HTTP health check](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/core/v3/health_check.proto#config-core-v3-healthcheck-httphealthcheck) to. Envoy will not route to clusters that fail health checks.
@@ -89,6 +90,9 @@ Allows for adjusting the timeout in envoy. Currently this will set the following
 * [config.route.v3.RetryPolicy.PerTryTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-per-try-timeout)
 * [config.cluster.v3.Cluster.ConnectTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/cluster/v3/cluster.proto#envoy-v3-api-field-config-cluster-v3-cluster-connect-timeout)
 
+### Retries
+Allows overwriting the default retry policy's [config.route.v3.RetryPolicy.RetryOn](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-retry-on) set by the `--retry-on` flag (default 5xx). Accepts a comma-separated list of retry-on policies.
+
 ### Example
 Below is an example of an ingress with some of the annotations specified
 
@@ -101,6 +105,7 @@ metadata:
   annotations:
     yggdrasil.uswitch.com/healthcheck-path: /healthz
     yggdrasil.uswitch.com/timeout: 30s
+    yggdrasil.uswitch.com/retry-on: gateway-error,connect-failure
 spec:
   rules:
   - host: example.com
@@ -170,6 +175,7 @@ The Yggdrasil-specific metrics which are available from the API are:
 --health-address string                       yggdrasil health API listen address (default "0.0.0.0:8081")
 --help                                        help for yggdrasil
 --host-selection-retry-attempts int           Number of host selection retry attempts. Set to value >=0 to enable (default -1)
+--retry-on                                    Default comma-separated list of retry policies (default 5xx)
 --http-ext-authz-allow-partial-message        When this field is true, Envoy will buffer the message until max_request_bytes is reached (default true)
 --http-ext-authz-cluster string               The name of the upstream gRPC cluster
 --http-ext-authz-failure-mode-allow           Changes filters behaviour on errors (default true)
