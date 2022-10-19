@@ -60,6 +60,7 @@ type KubernetesConfigurator struct {
 	useRemoteAddress           bool
 	httpExtAuthz               HttpExtAuthz
 	httpGrpcLogger             HttpGrpcLogger
+	defaultRetryOn             string
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -161,7 +162,7 @@ func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) [
 func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) []*listener.FilterChain {
 	virtualHosts := []*route.VirtualHost{}
 	for _, virtualHost := range config.VirtualHosts {
-		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
+		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn))
 	}
 
 	httpConnectionManager := c.makeConnectionManager(virtualHosts)
@@ -194,7 +195,7 @@ func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfigurat
 			log.Printf("Error matching certificate for '%s': %v", virtualHost.Host, err)
 		} else {
 			for _, idx := range certificateIndicies {
-				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
+				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn))
 			}
 		}
 	}

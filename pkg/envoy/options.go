@@ -2,7 +2,7 @@ package envoy
 
 type option func(c *KubernetesConfigurator)
 
-// WithEnvoyPort configures the given envoy port into a KubernetesConfigurator
+// WithEWithEnvoyListenerIpv4AddressnvoyPort configures envoy IPv4 listen address into a KubernetesConfigurator
 func WithEnvoyListenerIpv4Address(address string) option {
 	return func(c *KubernetesConfigurator) {
 		c.envoyListenerIpv4Address = address
@@ -62,5 +62,12 @@ func WithHttpExtAuthzCluster(httpExtAuthz HttpExtAuthz) option {
 func WithHttpGrpcLogger(httpGrpcLogger HttpGrpcLogger) option {
 	return func(c *KubernetesConfigurator) {
 		c.httpGrpcLogger = httpGrpcLogger
+	}
+}
+
+// WithDefaultRetryOn configures the default retry policy
+func WithDefaultRetryOn(defaultRetryOn string) option {
+	return func(c *KubernetesConfigurator) {
+		c.defaultRetryOn = defaultRetryOn
 	}
 }

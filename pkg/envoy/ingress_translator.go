@@ -65,6 +65,7 @@ type virtualHost struct {
 	UpstreamCluster string
 	Timeout         time.Duration
 	PerTryTimeout   time.Duration
+	RetryOn         string
 }
 
 func (v *virtualHost) Equals(other *virtualHost) bool {
@@ -75,7 +76,8 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 	return v.Host == other.Host &&
 		v.Timeout == other.Timeout &&
 		v.UpstreamCluster == other.UpstreamCluster &&
-		v.PerTryTimeout == other.PerTryTimeout
+		v.PerTryTimeout == other.PerTryTimeout &&
+		v.RetryOn == other.RetryOn
 }
 
 type cluster struct {
@@ -206,6 +208,17 @@ func (ing *envoyIngress) addTimeout(timeout time.Duration) {
 	ing.vhost.PerTryTimeout = timeout
 }
 
+func (envoyIng *envoyIngress) addRetryOn(ingress *k8s.Ingress) {
+	if ingress.Annotations["yggdrasil.uswitch.com/retry-on"] != "" {
+		retryOn := ingress.Annotations["yggdrasil.uswitch.com/retry-on"]
+		if !ValidateEnvoyRetryOn(retryOn) {
+			logrus.Warnf("invalid retry-on parameter for ingress %s/%s: %s", ingress.Namespace, ingress.Name, retryOn)
+			return
+		}
+		envoyIng.vhost.RetryOn = retryOn
+	}
+}
+
 func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
@@ -222,8 +235,6 @@ func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
 
 				envoyIngress.addUpstream(j)
 
-				// TODO handle spec ingressClass
-
 				if i.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {
 					envoyIngress.addHealthCheckPath(i.Annotations["yggdrasil.uswitch.com/healthcheck-path"])
 				}
@@ -234,6 +245,7 @@ func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
 						envoyIngress.addTimeout(timeout)
 					}
 				}
+				envoyIngress.addRetryOn(i)
 			}
 		}
 	}
