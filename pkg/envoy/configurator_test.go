@@ -10,8 +10,7 @@ import (
 	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/golang/protobuf/ptypes"
-
-	"k8s.io/api/extensions/v1beta1"
+	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
 func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain, expected int) {
@@ -72,8 +71,8 @@ func assertServerNames(t *testing.T, filterChain *listener.FilterChain, expected
 }
 
 func TestGenerate(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngress("wibble", "bibble"),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("wibble", "bibble"),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
@@ -91,9 +90,9 @@ func TestGenerate(t *testing.T) {
 }
 
 func TestGenerateMultipleCerts(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngress("foo.internal.api.com", "bibble"),
-		newIngress("foo.internal.api.co.uk", "bibble"),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("foo.internal.api.com", "bibble"),
+		newGenericIngress("foo.internal.api.co.uk", "bibble"),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
@@ -113,9 +112,9 @@ func TestGenerateMultipleCerts(t *testing.T) {
 }
 
 func TestGenerateMultipleHosts(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngress("foo.internal.api.com", "bibble"),
-		newIngress("foo.internal.api.co.uk", "bibble"),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("foo.internal.api.com", "bibble"),
+		newGenericIngress("foo.internal.api.co.uk", "bibble"),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
@@ -134,9 +133,9 @@ func TestGenerateMultipleHosts(t *testing.T) {
 }
 
 func TestGenerateNoMatchingCert(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngress("foo.internal.api.com", "bibble"),
-		newIngress("foo.internal.api.co.uk", "bibble"),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("foo.internal.api.com", "bibble"),
+		newGenericIngress("foo.internal.api.co.uk", "bibble"),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{
@@ -152,8 +151,8 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 }
 
 func TestGenerateIntoTwoCerts(t *testing.T) {
-	ingresses := []v1beta1.Ingress{
-		newIngress("foo.internal.api.com", "bibble"),
+	ingresses := []*k8s.Ingress{
+		newGenericIngress("foo.internal.api.com", "bibble"),
 	}
 
 	configurator := NewKubernetesConfigurator("a", []Certificate{

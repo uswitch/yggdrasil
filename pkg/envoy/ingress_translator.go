@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/extensions/v1beta1"
+	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
 func sortCluster(clusters []*cluster) {
@@ -136,12 +136,11 @@ func (cfg *envoyConfiguration) equals(oldCfg *envoyConfiguration) (vmatch bool, 
 	return VirtualHostsEquals(cfg.VirtualHosts, oldCfg.VirtualHosts), ClustersEquals(cfg.Clusters, oldCfg.Clusters)
 }
 
-func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.Ingress {
-	is := make([]v1beta1.Ingress, 0)
-
+func classFilter(ingresses []*k8s.Ingress, ingressClass []string) (is []*k8s.Ingress) {
 	for _, i := range ingresses {
 		for _, class := range ingressClass {
-			if i.GetAnnotations()["kubernetes.io/ingress.class"] == class {
+			if i.Annotations["kubernetes.io/ingress.class"] == class ||
+				(i.Class != nil && *i.Class == class) {
 				is = append(is, i)
 			}
 		}
@@ -150,15 +149,13 @@ func classFilter(ingresses []v1beta1.Ingress, ingressClass []string) []v1beta1.I
 	return is
 }
 
-func validIngressFilter(ingresses []v1beta1.Ingress) []v1beta1.Ingress {
-	vi := make([]v1beta1.Ingress, 0)
-
+func validIngressFilter(ingresses []*k8s.Ingress) (vi []*k8s.Ingress) {
 Ingress:
 	for _, i := range ingresses {
-		for _, j := range i.Status.LoadBalancer.Ingress {
-			if j.Hostname != "" || j.IP != "" {
-				for _, k := range i.Spec.Rules {
-					if k.Host != "" {
+		for _, u := range i.Upstreams {
+			if u != "" {
+				for _, h := range i.RulesHosts {
+					if h != "" {
 						vi = append(vi, i)
 						continue Ingress
 					}
@@ -211,9 +208,9 @@ func (ing *envoyIngress) addTimeout(timeout time.Duration) {
 	ing.vhost.PerTryTimeout = timeout
 }
 
-func (envoyIng *envoyIngress) addRetryOn(ingress *v1beta1.Ingress) {
-	if ingress.GetAnnotations()["yggdrasil.uswitch.com/retry-on"] != "" {
-		retryOn := ingress.GetAnnotations()["yggdrasil.uswitch.com/retry-on"]
+func (envoyIng *envoyIngress) addRetryOn(ingress *k8s.Ingress) {
+	if ingress.Annotations["yggdrasil.uswitch.com/retry-on"] != "" {
+		retryOn := ingress.Annotations["yggdrasil.uswitch.com/retry-on"]
 		if !ValidateEnvoyRetryOn(retryOn) {
 			logrus.Warnf("invalid retry-on parameter for ingress %s/%s: %s", ingress.Namespace, ingress.Name, retryOn)
 			return
@@ -222,37 +219,33 @@ func (envoyIng *envoyIngress) addRetryOn(ingress *v1beta1.Ingress) {
 	}
 }
 
-func translateIngresses(ingresses []v1beta1.Ingress) *envoyConfiguration {
+func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
 
 	for _, i := range ingresses {
-		for _, j := range i.Status.LoadBalancer.Ingress {
-			for _, rule := range i.Spec.Rules {
-				_, ok := envoyIngresses[rule.Host]
+		for _, j := range i.Upstreams {
+			for _, ruleHost := range i.RulesHosts {
+				_, ok := envoyIngresses[ruleHost]
 				if !ok {
-					envoyIngresses[rule.Host] = newEnvoyIngress(rule.Host)
+					envoyIngresses[ruleHost] = newEnvoyIngress(ruleHost)
 				}
 
-				envoyIngress := envoyIngresses[rule.Host]
+				envoyIngress := envoyIngresses[ruleHost]
 
-				if j.Hostname != "" {
-					envoyIngress.addUpstream(j.Hostname)
-				} else {
-					envoyIngress.addUpstream(j.IP)
+				envoyIngress.addUpstream(j)
+
+				if i.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {
+					envoyIngress.addHealthCheckPath(i.Annotations["yggdrasil.uswitch.com/healthcheck-path"])
 				}
 
-				if i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"] != "" {
-					envoyIngress.addHealthCheckPath(i.GetAnnotations()["yggdrasil.uswitch.com/healthcheck-path"])
-				}
-
-				if i.GetAnnotations()["yggdrasil.uswitch.com/timeout"] != "" {
-					timeout, err := time.ParseDuration(i.GetAnnotations()["yggdrasil.uswitch.com/timeout"])
+				if i.Annotations["yggdrasil.uswitch.com/timeout"] != "" {
+					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/timeout"])
 					if err == nil {
 						envoyIngress.addTimeout(timeout)
 					}
 				}
-				envoyIngress.addRetryOn(&i)
+				envoyIngress.addRetryOn(i)
 			}
 		}
 	}

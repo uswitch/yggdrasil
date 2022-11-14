@@ -1,18 +1,16 @@
 package envoy
 
 import (
-	"context"
-
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/extensions/v1beta1"
 
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
 //Configurator is an interface that implements Generate and NodeID
 type Configurator interface {
-	Generate([]v1beta1.Ingress) cache.Snapshot
+	Generate([]*k8s.Ingress) cache.Snapshot
 	NodeID() string
 }
 
@@ -21,21 +19,21 @@ type Configurator interface {
 type Snapshotter struct {
 	snapshotCache cache.SnapshotCache
 	configurator  Configurator
-	lister        *k8s.IngressAggregator
+	aggregator    *k8s.Aggregator
 }
 
 //NewSnapshotter returns a new Snapshotter
-func NewSnapshotter(snapshotCache cache.SnapshotCache, config Configurator, lister *k8s.IngressAggregator) *Snapshotter {
-	return &Snapshotter{snapshotCache: snapshotCache, configurator: config, lister: lister}
+func NewSnapshotter(snapshotCache cache.SnapshotCache, config Configurator, aggregator *k8s.Aggregator) *Snapshotter {
+	return &Snapshotter{snapshotCache: snapshotCache, configurator: config, aggregator: aggregator}
 }
 
 func (s *Snapshotter) snapshot() error {
-	ingresses, err := s.lister.List()
+	genericIngresses, err := s.aggregator.GetGenericIngresses()
 	if err != nil {
 		return err
 	}
 
-	snapshot := s.configurator.Generate(ingresses)
+	snapshot := s.configurator.Generate(genericIngresses)
 
 	log.Debugf("took snapshot: %+v", snapshot)
 
@@ -44,16 +42,25 @@ func (s *Snapshotter) snapshot() error {
 }
 
 //Run will periodically refresh the snapshot
-func (s *Snapshotter) Run(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-s.lister.Events():
-				s.snapshot()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+func (s *Snapshotter) Run(a *k8s.Aggregator) {
 	log.Infof("started snapshotter")
+	hadChanges := false
+	for event := range a.Events() {
+		change := false
+		switch event.SyncType {
+		case k8s.COMMAND:
+			if hadChanges {
+				err := s.snapshot()
+				if err != nil {
+					logrus.Warnf("caught error in snapshot: %s", err)
+					continue
+				}
+				hadChanges = false
+				continue
+			}
+		case k8s.INGRESS:
+			change = true
+		}
+		hadChanges = hadChanges || change
+	}
 }
