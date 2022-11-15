@@ -3,6 +3,7 @@ package envoy
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	cal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	v3cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -27,7 +28,8 @@ import (
 )
 
 var (
-	jsonFormat *structpb.Struct
+	jsonFormat      *structpb.Struct
+	allowedRetryOns map[string]bool
 )
 
 func init() {
@@ -56,9 +58,26 @@ func init() {
 		log.Fatal(err)
 	}
 	jsonFormat = b.GetStructValue()
+
+	allowedRetryOns = map[string]bool{
+		"5xx":                        true,
+		"gateway-error":              true,
+		"reset":                      true,
+		"connect-failure":            true,
+		"envoy-ratelimited":          true,
+		"retriable-4xx":              true,
+		"refused-stream":             true,
+		"retriable-status-codes":     true,
+		"retriable-headers":          true,
+		"http3-post-connect-failure": true,
+	}
 }
 
-func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.VirtualHost {
+func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetryOn string) *route.VirtualHost {
+	retryOn := vhost.RetryOn
+	if retryOn == "" {
+		retryOn = defaultRetryOn
+	}
 
 	action := &route.Route_Route{
 		Route: &route.RouteAction{
@@ -67,7 +86,7 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64) *route.Virtu
 				Cluster: vhost.UpstreamCluster,
 			},
 			RetryPolicy: &route.RetryPolicy{
-				RetryOn:       "5xx",
+				RetryOn:       retryOn,
 				PerTryTimeout: &duration.Duration{Seconds: int64(vhost.PerTryTimeout.Seconds())},
 			},
 		},
@@ -438,4 +457,15 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	}
 
 	return cluster
+}
+
+func ValidateEnvoyRetryOn(retryOn string) bool {
+	retryOnList := strings.Split(retryOn, ",")
+
+	for _, ro := range retryOnList {
+		if !allowedRetryOns[ro] {
+			return false
+		}
+	}
+	return true
 }

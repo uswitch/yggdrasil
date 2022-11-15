@@ -63,6 +63,7 @@ type KubernetesConfigurator struct {
 	useRemoteAddress           bool
 	httpExtAuthz               HttpExtAuthz
 	httpGrpcLogger             HttpGrpcLogger
+	defaultRetryOn             string
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -170,7 +171,7 @@ func (c *KubernetesConfigurator) generateDynamicTLSFilterChains(config *envoyCon
 	allVhosts := []*route.VirtualHost{}
 
 	for _, virtualHost := range config.VirtualHosts {
-		envoyVhost := makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts)
+		envoyVhost := makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn)
 		allVhosts = append(allVhosts, envoyVhost)
 
 		if virtualHost.TlsCert == "" || virtualHost.TlsKey == "" {
@@ -212,7 +213,7 @@ func (c *KubernetesConfigurator) generateDynamicTLSFilterChains(config *envoyCon
 func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) []*listener.FilterChain {
 	virtualHosts := []*route.VirtualHost{}
 	for _, virtualHost := range config.VirtualHosts {
-		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
+		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn))
 	}
 
 	httpConnectionManager := c.makeConnectionManager(virtualHosts)
@@ -245,7 +246,7 @@ func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfigurat
 			log.Printf("error matching certificate for '%s': %v", virtualHost.Host, err)
 		} else {
 			for _, idx := range certificateIndicies {
-				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts))
+				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn))
 			}
 		}
 	}

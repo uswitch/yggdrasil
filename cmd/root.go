@@ -88,6 +88,7 @@ func init() {
 	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
 	rootCmd.PersistentFlags().Int32("max-ejection-percentage", -1, "maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy.")
 	rootCmd.PersistentFlags().Int64("host-selection-retry-attempts", -1, "Number of host selection retry attempts. Set to value >=0 to enable")
+	rootCmd.PersistentFlags().String("retry-on", "5xx", "default comma-separated list of retry policies")
 	rootCmd.PersistentFlags().Duration("upstream-healthcheck-interval", 10*time.Second, "duration of the upstream health check interval")
 	rootCmd.PersistentFlags().Duration("upstream-healthcheck-timeout", 5*time.Second, "timeout of the upstream healthchecks")
 	rootCmd.PersistentFlags().Uint32("upstream-healthcheck-healthy", 3, "number of successful healthchecks before the backend is considered healthy")
@@ -116,6 +117,7 @@ func init() {
 	viper.BindPFlag("envoyPort", rootCmd.PersistentFlags().Lookup("envoy-port"))
 	viper.BindPFlag("maxEjectionPercentage", rootCmd.PersistentFlags().Lookup("max-ejection-percentage"))
 	viper.BindPFlag("hostSelectionRetryAttempts", rootCmd.PersistentFlags().Lookup("host-selection-retry-attempts"))
+	viper.BindPFlag("retryOn", rootCmd.PersistentFlags().Lookup("retry-on"))
 	viper.BindPFlag("upstreamHealthCheck.interval", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-interval"))
 	viper.BindPFlag("upstreamHealthCheck.timeout", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-timeout"))
 	viper.BindPFlag("upstreamHealthCheck.healthyThreshold", rootCmd.PersistentFlags().Lookup("upstream-healthcheck-healthy"))
@@ -151,6 +153,10 @@ func main(*cobra.Command, []string) error {
 	err := viper.Unmarshal(&c)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling viper config: %s", err)
+	}
+
+	if !envoy.ValidateEnvoyRetryOn(viper.GetString("retryOn")) {
+		return fmt.Errorf("invalid retry-on parameter: %s", viper.GetString("retryOn"))
 	}
 
 	if viper.Get("debug") == true {
@@ -227,6 +233,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
 		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
 		envoy.WithSyncSecrets(c.SyncSecrets),
+		envoy.WithDefaultRetryOn(viper.GetString("retryOn")),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 
