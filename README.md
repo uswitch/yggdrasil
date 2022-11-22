@@ -179,7 +179,7 @@ The Yggdrasil-specific metrics which are available from the API are:
 --http-ext-authz-cluster string               The name of the upstream gRPC cluster
 --http-ext-authz-failure-mode-allow           Changes filters behaviour on errors (default true)
 --http-ext-authz-max-request-bytes uint32     Sets the maximum size of a message body that the filter will hold in memory (default 8192)
---http-ext-authz-pack-as-bytes                When this field is true, Envoy will send the body as raw bytes. (default true)
+--http-ext-authz-pack-as-bytes                When this field is true, Envoy will send the body as raw bytes.
 --http-ext-authz-timeout duration             The timeout for the gRPC request. This is the timeout for a specific request. (default 200ms)
 --http-grpc-logger-cluster string             The name of the upstream gRPC cluster
 --http-grpc-logger-name string                Name of the access log

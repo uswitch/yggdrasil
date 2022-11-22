@@ -102,7 +102,7 @@ func init() {
 	rootCmd.PersistentFlags().Duration("http-ext-authz-timeout", 200*time.Millisecond, "The timeout for the gRPC request. This is the timeout for a specific request.")
 	rootCmd.PersistentFlags().Uint32("http-ext-authz-max-request-bytes", 8192, "Sets the maximum size of a message body that the filter will hold in memory")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-allow-partial-message", true, "When this field is true, Envoy will buffer the message until max_request_bytes is reached")
-	rootCmd.PersistentFlags().Bool("http-ext-authz-pack-as-bytes", true, "When this field is true, Envoy will send the body as raw bytes.")
+	rootCmd.PersistentFlags().Bool("http-ext-authz-pack-as-bytes", false, "When this field is true, Envoy will send the body as raw bytes.")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-failure-mode-allow", true, "Changes filters behaviour on errors")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
