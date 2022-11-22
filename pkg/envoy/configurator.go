@@ -34,7 +34,7 @@ type HttpExtAuthz struct {
 	Timeout             time.Duration `json:"timeout"`
 	MaxRequestBytes     uint32        `json:"maxRequestBytes"`
 	AllowPartialMessage bool          `json:"allowPartialMessage"`
-	PackAsBytes         bool		  `json:"packAsBytes"`
+	PackAsBytes         bool          `json:"packAsBytes"`
 	FailureModeAllow    bool          `json:"FailureModeAllow"`
 }
 
