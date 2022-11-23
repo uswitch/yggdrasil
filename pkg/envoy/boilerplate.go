@@ -499,8 +499,9 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	// }
 	httpOptions := &envoy_extension_http.HttpProtocolOptions{
 		CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-			IdleTimeout:           &duration.Duration{Seconds: 60},
-			MaxConnectionDuration: &durationpb.Duration{Seconds: 60},
+			IdleTimeout:              &duration.Duration{Seconds: 60},
+			MaxConnectionDuration:    &durationpb.Duration{Seconds: 60},
+			MaxRequestsPerConnection: &wrapperspb.UInt32Value{Value: 10000},
 		},
 		UpstreamProtocolOptions: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_{
 			ExplicitHttpConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig{
@@ -514,7 +515,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	}
 	httpOptionsPb, err := anypb.New(httpOptions)
 	if err != nil {
-		log.Printf("Error marshaling httpOptions: %s", err)
+		log.Fatalf("Error marshaling httpOptions: %s", err)
 	}
 
 	cluster := &v3cluster.Cluster{
@@ -527,8 +528,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 				{LbEndpoints: endpoints},
 			},
 		},
-		HealthChecks:             healthChecks,
-		MaxRequestsPerConnection: &wrapperspb.UInt32Value{Value: 10000},
+		HealthChecks: healthChecks,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": httpOptionsPb,
 		},
