@@ -173,13 +173,13 @@ The Yggdrasil-specific metrics which are available from the API are:
 --envoy-listener-ipv4-address string          IPv4 address by the envoy proxy to accept incoming connections (default "0.0.0.0")
 --envoy-port uint32                           port by the envoy proxy to accept incoming connections (default 10000)
 --health-address string                       yggdrasil health API listen address (default "0.0.0.0:8081")
---help                                        help for yggdrasil
+-h, --help                                        help for yggdrasil
 --host-selection-retry-attempts int           Number of host selection retry attempts. Set to value >=0 to enable (default -1)
---retry-on                                    Default comma-separated list of retry policies (default 5xx)
 --http-ext-authz-allow-partial-message        When this field is true, Envoy will buffer the message until max_request_bytes is reached (default true)
 --http-ext-authz-cluster string               The name of the upstream gRPC cluster
 --http-ext-authz-failure-mode-allow           Changes filters behaviour on errors (default true)
 --http-ext-authz-max-request-bytes uint32     Sets the maximum size of a message body that the filter will hold in memory (default 8192)
+--http-ext-authz-pack-as-bytes                When this field is true, Envoy will send the body as raw bytes.
 --http-ext-authz-timeout duration             The timeout for the gRPC request. This is the timeout for a specific request. (default 200ms)
 --http-grpc-logger-cluster string             The name of the upstream gRPC cluster
 --http-grpc-logger-name string                Name of the access log
@@ -191,6 +191,7 @@ The Yggdrasil-specific metrics which are available from the API are:
 --kube-config stringArray                     Path to kube config
 --max-ejection-percentage int32               maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy. (default -1)
 --node-name string                            envoy node name
+--retry-on string                             default comma-separated list of retry policies (default "5xx")
 --upstream-healthcheck-healthy uint32         number of successful healthchecks before the backend is considered healthy (default 3)
 --upstream-healthcheck-interval duration      duration of the upstream health check interval (default 10s)
 --upstream-healthcheck-timeout duration       timeout of the upstream healthchecks (default 5s)

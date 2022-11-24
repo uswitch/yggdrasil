@@ -147,6 +147,7 @@ func makeExtAuthzConfig(cfg HttpExtAuthz) *eauthz.ExtAuthz {
 		WithRequestBody: &eauthz.BufferSettings{
 			MaxRequestBytes:     cfg.MaxRequestBytes,
 			AllowPartialMessage: cfg.AllowPartialMessage,
+			PackAsBytes:         cfg.PackAsBytes,
 		},
 		FailureModeAllow: cfg.FailureModeAllow,
 	}
