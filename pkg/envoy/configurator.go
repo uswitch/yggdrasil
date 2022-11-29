@@ -39,11 +39,11 @@ type HttpExtAuthz struct {
 }
 
 type HttpGrpcLogger struct {
-	Name                      string        `json:"name"`
-	Cluster                   string        `json:"cluster"`
-	Timeout                   time.Duration `json:"timeout"`
-	AdditionalRequestHeaders  []string      `json:"additionalRequestHeaders"`
-	AdditionalResponseHeaders []string      `json:"additionalResponseHeaders"`
+	Name            string        `json:"name"`
+	Cluster         string        `json:"cluster"`
+	Timeout         time.Duration `json:"timeout"`
+	RequestHeaders  []string      `json:"requestHeaders"`
+	ResponseHeaders []string      `json:"responseHeaders"`
 }
 
 //KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class

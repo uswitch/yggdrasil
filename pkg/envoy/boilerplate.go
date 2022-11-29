@@ -167,8 +167,8 @@ func makeGrpcLoggerConfig(cfg HttpGrpcLogger) *gal.HttpGrpcAccessLogConfig {
 			},
 			TransportApiVersion: core.ApiVersion_V3,
 		},
-		AdditionalRequestHeadersToLog:  cfg.AdditionalRequestHeaders,
-		AdditionalResponseHeadersToLog: cfg.AdditionalResponseHeaders,
+		AdditionalRequestHeadersToLog:  cfg.RequestHeaders,
+		AdditionalResponseHeadersToLog: cfg.ResponseHeaders,
 	}
 }
 
