@@ -532,6 +532,16 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": httpOptionsPb,
 		},
+		CircuitBreakers: &v3cluster.CircuitBreakers{
+			Thresholds: []*v3cluster.CircuitBreakers_Thresholds{
+				&v3cluster.CircuitBreakers_Thresholds{
+					Priority:           core.RoutingPriority_DEFAULT,
+					MaxConnections:     wrapperspb.UInt32(32768),
+					MaxRequests:        wrapperspb.UInt32(32768),
+					MaxPendingRequests: wrapperspb.UInt32(32768),
+				},
+			},
+		},
 	}
 	if outlierPercentage >= 0 {
 		cluster.OutlierDetection = &v3cluster.OutlierDetection{
