@@ -62,6 +62,7 @@ type KubernetesConfigurator struct {
 	httpExtAuthz               HttpExtAuthz
 	httpGrpcLogger             HttpGrpcLogger
 	defaultRetryOn             string
+	alpnProtocols              []string
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
