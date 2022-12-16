@@ -77,6 +77,7 @@ type KubernetesConfigurator struct {
 	accessLogger               AccessLogger
 	defaultRetryOn             string
 	tracingProvider            string
+	alpnProtocols              []string
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string

@@ -47,6 +47,7 @@ type config struct {
 	HttpExtAuthz               envoy.HttpExtAuthz        `json:"httpExtAuthz"`
 	HttpGrpcLogger             envoy.HttpGrpcLogger      `json:"httpGrpcLogger"`
 	DefaultTimeouts            envoy.DefaultTimeouts     `json:"defaultTimeouts"`
+	AlpnProtocols              []string                  `json:"alpnProtocols"`
 	AccessLogger               envoy.AccessLogger        `json:"accessLogger"`
 }
 
@@ -113,6 +114,7 @@ func init() {
 	rootCmd.PersistentFlags().Duration("default-route-timeout", 15*time.Second, "Default timeout of the routes")
 	rootCmd.PersistentFlags().Duration("default-cluster-timeout", 30*time.Second, "Default timeout of the cluster")
 	rootCmd.PersistentFlags().Duration("default-per-try-timeout", 5*time.Second, "Default timeout of PerTry")
+	rootCmd.PersistentFlags().StringSlice("alpn-protocols", []string{}, "exposed listener ALPN protocols")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("configDump", rootCmd.PersistentFlags().Lookup("config-dump"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
@@ -148,6 +150,7 @@ func init() {
 	viper.BindPFlag("defaultTimeouts.Route", rootCmd.PersistentFlags().Lookup("default-route-timeout"))
 	viper.BindPFlag("defaultTimeouts.Cluster", rootCmd.PersistentFlags().Lookup("default-cluster-timeout"))
 	viper.BindPFlag("defaultTimeouts.PerTry", rootCmd.PersistentFlags().Lookup("default-per-try-timeout"))
+	viper.BindPFlag("alpnProtocols", rootCmd.PersistentFlags().Lookup("alpn-protocols"))
 }
 
 func initConfig() {
@@ -252,6 +255,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithDefaultRetryOn(viper.GetString("retryOn")),
 		envoy.WithAccessLog(c.AccessLogger),
 		envoy.WithTracingProvider(viper.GetString("tracingProvider")),
+		envoy.WithAlpnProtocols(viper.GetStringSlice("alpnProtocols")),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 
