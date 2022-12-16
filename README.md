@@ -166,6 +166,7 @@ The Yggdrasil-specific metrics which are available from the API are:
 ## Flags
 ```
 --address string                              yggdrasil envoy control plane listen address (default "0.0.0.0:8080")
+--alpn-protocols strings                      exposed listener ALPN protocols
 --ca string                                   trustedCA
 --cert string                                 certfile
 --config string                               config file
