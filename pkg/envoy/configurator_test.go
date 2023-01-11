@@ -79,7 +79,7 @@ func TestGenerate(t *testing.T) {
 		{Hosts: []string{"*"}, Cert: "b", Key: "c"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot, _ := configurator.Generate(ingresses)
 
 	if len(snapshot.Resources[tcache.Listener].Items) != 1 {
 		t.Fatalf("Num listeners: %d", len(snapshot.Resources[tcache.Listener].Items))
@@ -100,7 +100,11 @@ func TestGenerateMultipleCerts(t *testing.T) {
 		{Hosts: []string{"*.internal.api.co.uk"}, Cert: "couk", Key: "couk"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot, err := configurator.Generate(ingresses)
+	if err != nil {
+		t.Fatalf("Error generating snapshot %v", err)
+	}
+
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 2 {
@@ -121,7 +125,11 @@ func TestGenerateMultipleHosts(t *testing.T) {
 		{Hosts: []string{"*.internal.api.com", "*.internal.api.co.uk"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot, err := configurator.Generate(ingresses)
+	if err != nil {
+		t.Fatalf("Error generating snapshot %v", err)
+	}
+
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 1 {
@@ -142,7 +150,11 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot, err := configurator.Generate(ingresses)
+	if err != nil {
+		t.Fatalf("Error generating snapshot %v", err)
+	}
+
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 1 {
@@ -160,7 +172,11 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 		{Hosts: []string{"*"}, Cert: "all", Key: "all"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses)
+	snapshot, err := configurator.Generate(ingresses)
+	if err != nil {
+		t.Fatalf("Error generating snapshot %v", err)
+	}
+
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 2 {
@@ -228,7 +244,10 @@ func TestGenerateListeners(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			configurator := NewKubernetesConfigurator("a", tc.certs, "", nil)
-			ret := configurator.generateListeners(&envoyConfiguration{VirtualHosts: tc.virtualHost})
+			ret, err := configurator.generateListeners(&envoyConfiguration{VirtualHosts: tc.virtualHost})
+			if err != nil {
+				t.Fatalf("Error generating listeners %v", err)
+			}
 			listener := ret[0].(*listener.Listener)
 			if len(listener.FilterChains) != 1 {
 				t.Fatalf("filterchain number missmatch")

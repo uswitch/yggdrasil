@@ -10,7 +10,7 @@ import (
 
 //Configurator is an interface that implements Generate and NodeID
 type Configurator interface {
-	Generate([]*k8s.Ingress) cache.Snapshot
+	Generate([]*k8s.Ingress) (cache.Snapshot, error)
 	NodeID() string
 }
 
@@ -33,7 +33,7 @@ func (s *Snapshotter) snapshot() error {
 		return err
 	}
 
-	snapshot := s.configurator.Generate(genericIngresses)
+	snapshot, err := s.configurator.Generate(genericIngresses)
 
 	log.Debugf("took snapshot: %+v", snapshot)
 
