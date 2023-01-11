@@ -15,6 +15,7 @@ import (
 	gal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	eauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	hcfg "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
+	tlsInspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -329,8 +330,14 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 	}, nil
 }
 
-func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) *listener.Listener {
+func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) (*listener.Listener, error) {
 
+	tls := &tlsInspector.TlsInspector{}
+
+	anyTls, err := types.MarshalAny(tls)
+	if err != nil {
+		return &listener.Listener{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
+	}
 	listener := listener.Listener{
 		Name: "listener_0",
 		Address: &core.Address{
@@ -344,14 +351,17 @@ func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address
 			},
 		},
 		ListenerFilters: []*listener.ListenerFilter{
-			{Name: "envoy.filters.listener.tls_inspector"},
+			{
+				Name:       "envoy.filters.listener.tls_inspector",
+				ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: anyTls},
+			},
 		},
 		FilterChains: filterChains,
 		// Setting the TrafficDirection here for tracing
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 
-	return &listener
+	return &listener, nil
 }
 
 func makeAddresses(addresses []string, upstreamPort uint32) []*core.Address {

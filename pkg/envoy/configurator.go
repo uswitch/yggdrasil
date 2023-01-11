@@ -79,7 +79,7 @@ func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca str
 }
 
 //Generate creates a new snapshot
-func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress) cache.Snapshot {
+func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress) (cache.Snapshot, error) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -88,7 +88,10 @@ func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress) cache.Snapsh
 	vmatch, cmatch := config.equals(c.previousConfig)
 
 	clusters := c.generateClusters(config)
-	listeners := c.generateListeners(config)
+	listeners, err := c.generateListeners(config)
+	if err != nil {
+		return cache.Snapshot{}, err
+	}
 
 	if !vmatch {
 		c.listenerVersion = time.Now().String()
@@ -104,7 +107,7 @@ func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress) cache.Snapsh
 	snap := cache.Snapshot{}
 	snap.Resources[tcache.Cluster] = cache.NewResources(c.clusterVersion, []tcache.Resource(clusters))
 	snap.Resources[tcache.Listener] = cache.NewResources(c.listenerVersion, []tcache.Resource(listeners))
-	return snap
+	return snap, nil
 }
 
 //NodeID returns the NodeID
@@ -150,14 +153,15 @@ func (c *KubernetesConfigurator) matchCertificateIndices(virtualHost *virtualHos
 	return []int{}, errNoCertificateMatch
 }
 
-func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) []tcache.Resource {
+func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) ([]tcache.Resource, error) {
 	var filterChains []*listener.FilterChain
 	if len(c.certificates) > 0 {
 		filterChains = c.generateTLSFilterChains(config)
 	} else {
 		filterChains = c.generateHTTPFilterChain(config)
 	}
-	return []tcache.Resource{makeListener(filterChains, c.envoyListenerIpv4Address, c.envoyListenPort)}
+	listener, err := makeListener(filterChains, c.envoyListenerIpv4Address, c.envoyListenPort)
+	return []tcache.Resource{listener}, err
 }
 
 func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) []*listener.FilterChain {
