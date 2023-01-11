@@ -7,12 +7,12 @@ SOURCES := $(shell find . -iname '*.go')
 
 .PHONY: test clean all
 
-all: build-darwin build-linux
+all: build-darwin $(BIN_LINUX)
 
 build-darwin: $(SOURCES)
 	GOARCH=$(ARCH) GOOS=darwin go build -o $(BIN_DARWIN)
 
-build-linux: $(SOURCES)
+$(BIN_LINUX): $(SOURCES)
 	GOARCH=$(ARCH) GOOS=linux CGO_ENABLED=0 go build -o $(BIN_LINUX)
 
 test: $(SOURCES)
@@ -22,7 +22,7 @@ bench: $(SOURCES)
 	go test -run=XX -bench=. $(shell go list ./... | grep -v /vendor)
 
 docker: Dockerfile $(BIN_LINUX)
-	docker image build -t quay.io/uswitch/yggdrasil:devel .
+	docker image build -t registry.airship.rvu.cloud/cloud/yggdrasil:devel .
 
 clean:
 	rm -rf bin/
