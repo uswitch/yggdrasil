@@ -11,7 +11,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
@@ -155,27 +154,34 @@ func (c *KubernetesConfigurator) matchCertificateIndices(virtualHost *virtualHos
 
 func (c *KubernetesConfigurator) generateListeners(config *envoyConfiguration) ([]tcache.Resource, error) {
 	var filterChains []*listener.FilterChain
+	var err error
 	if len(c.certificates) > 0 {
-		filterChains = c.generateTLSFilterChains(config)
+		filterChains, err = c.generateTLSFilterChains(config)
 	} else {
-		filterChains = c.generateHTTPFilterChain(config)
+		filterChains, err = c.generateHTTPFilterChain(config)
+	}
+	if err != nil {
+		return []tcache.Resource{}, err
 	}
 	listener, err := makeListener(filterChains, c.envoyListenerIpv4Address, c.envoyListenPort)
 	return []tcache.Resource{listener}, err
 }
 
-func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) []*listener.FilterChain {
+func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfiguration) ([]*listener.FilterChain, error) {
 	virtualHosts := []*route.VirtualHost{}
 	for _, virtualHost := range config.VirtualHosts {
-		virtualHosts = append(virtualHosts, makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn))
+		vhost, err := makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn)
+		if err != nil {
+			return nil, err
+		}
+		virtualHosts = append(virtualHosts, vhost)
 	}
 
-	httpConnectionManager := c.makeConnectionManager(virtualHosts)
-	httpConfig, err := util.MessageToStruct(httpConnectionManager)
+	httpConnectionManager, err := c.makeConnectionManager(virtualHosts)
 	if err != nil {
-		log.Fatalf("failed to convert virtualHost to envoy control plane struct: %s", err)
+		return nil, err
 	}
-	anyHttpConfig, err := types.MarshalAny(httpConfig)
+	anyHttpConfig, err := types.MarshalAny(httpConnectionManager)
 	if err != nil {
 		log.Fatalf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
@@ -188,10 +194,10 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 				},
 			},
 		},
-	}
+	}, nil
 }
 
-func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfiguration) []*listener.FilterChain {
+func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfiguration) ([]*listener.FilterChain, error) {
 	virtualHostsForCertificates := make([][]*route.VirtualHost, len(c.certificates))
 
 	for _, virtualHost := range config.VirtualHosts {
@@ -200,7 +206,11 @@ func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfigurat
 			log.Printf("Error matching certificate for '%s': %v", virtualHost.Host, err)
 		} else {
 			for _, idx := range certificateIndicies {
-				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn))
+				vhost, err := makeVirtualHost(virtualHost, c.hostSelectionRetryAttempts, c.defaultRetryOn)
+				if err != nil {
+					return nil, err
+				}
+				virtualHostsForCertificates[idx] = append(virtualHostsForCertificates[idx], vhost)
 			}
 		}
 	}
@@ -220,7 +230,7 @@ func (c *KubernetesConfigurator) generateTLSFilterChains(config *envoyConfigurat
 
 		filterChains = append(filterChains, &filterChain)
 	}
-	return filterChains
+	return filterChains, nil
 }
 
 func (c *KubernetesConfigurator) generateClusters(config *envoyConfiguration) []tcache.Resource {
