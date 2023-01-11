@@ -5,12 +5,14 @@ BIN_DARWIN = $(BIN)-darwin-$(ARCH)
 
 SOURCES := $(shell find . -iname '*.go')
 
-.PHONY: test clean all
+.PHONY: test clean all build-linux
 
 all: build-darwin $(BIN_LINUX)
 
 build-darwin: $(SOURCES)
 	GOARCH=$(ARCH) GOOS=darwin go build -o $(BIN_DARWIN)
+
+build-linux: $(BIN_LINUX)
 
 $(BIN_LINUX): $(SOURCES)
 	GOARCH=$(ARCH) GOOS=linux CGO_ENABLED=0 go build -o $(BIN_LINUX)
