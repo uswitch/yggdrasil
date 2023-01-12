@@ -17,8 +17,8 @@ import (
 	hcfg "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
 	tlsInspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	previousHosts "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
 	types "github.com/golang/protobuf/ptypes"
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -74,7 +74,7 @@ func init() {
 	}
 }
 
-func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetryOn string) *route.VirtualHost {
+func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetryOn string) (*route.VirtualHost, error) {
 	retryOn := vhost.RetryOn
 	if retryOn == "" {
 		retryOn = defaultRetryOn
@@ -93,10 +93,18 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetry
 		},
 	}
 
+	hosts := &previousHosts.PreviousHostsPredicate{}
+
+	anyHosts, err := types.MarshalAny(hosts)
+	if err != nil {
+		return &route.VirtualHost{}, fmt.Errorf("failed to marshal hosts config struct to typed struct: %s", err)
+	}
+
 	if reselectionAttempts >= 0 {
 		action.Route.RetryPolicy.RetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
 			{
-				Name: "envoy.retry_host_predicates.previous_hosts",
+				Name:       "envoy.retry_host_predicates.previous_hosts",
+				ConfigType: &route.RetryPolicy_RetryHostPredicate_TypedConfig{TypedConfig: anyHosts},
 			},
 		}
 		action.Route.RetryPolicy.HostSelectionRetryMaxAttempts = reselectionAttempts
@@ -115,7 +123,7 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetry
 			},
 		},
 	}
-	return &virtualHost
+	return &virtualHost, nil
 }
 
 func makeHealthConfig() *hcfg.HealthCheck {
@@ -173,22 +181,17 @@ func makeGrpcLoggerConfig(cfg HttpGrpcLogger) *gal.HttpGrpcAccessLogConfig {
 	}
 }
 
-func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
+func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
 	// Access Logs
-	accessLogConfig, err := util.MessageToStruct(
-		&eal.FileAccessLog{
-			Path: "/var/log/envoy/access.log",
-			AccessLogFormat: &eal.FileAccessLog_LogFormat{
-				LogFormat: &core.SubstitutionFormatString{
-					Format: &core.SubstitutionFormatString_JsonFormat{
-						JsonFormat: jsonFormat,
-					},
+	accessLogConfig := &eal.FileAccessLog{
+		Path: "/var/log/envoy/access.log",
+		AccessLogFormat: &eal.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: jsonFormat,
 				},
 			},
 		},
-	)
-	if err != nil {
-		log.Fatalf("failed to convert access log proto message to struct: %s", err)
 	}
 	anyAccessLogConfig, err := types.MarshalAny(accessLogConfig)
 	if err != nil {
@@ -203,10 +206,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	}
 
 	if c.httpGrpcLogger.Cluster != "" {
-		grpcLoggerConfig, err := util.MessageToStruct(makeGrpcLoggerConfig(c.httpGrpcLogger))
-		if err != nil {
-			log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
-		}
+		grpcLoggerConfig := makeGrpcLoggerConfig(c.httpGrpcLogger)
 		anyGrpcLoggerConfig, err := types.MarshalAny(grpcLoggerConfig)
 		if err != nil {
 			log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
@@ -220,10 +220,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	// HTTP Filters
 	filterBuilder := &httpFilterBuilder{}
 
-	healthConfig, err := util.MessageToStruct(makeHealthConfig())
-	if err != nil {
-		log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
-	}
+	healthConfig := makeHealthConfig()
 	anyHealthConfig, err := types.MarshalAny(healthConfig)
 	if err != nil {
 		log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
@@ -235,10 +232,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	})
 
 	if c.httpExtAuthz.Cluster != "" {
-		extAuthzConfig, err := util.MessageToStruct(makeExtAuthzConfig(c.httpExtAuthz))
-		if err != nil {
-			log.Fatalf("failed to convert extAuthz proto message to struct: %s", err)
-		}
+		extAuthzConfig := makeExtAuthzConfig(c.httpExtAuthz)
 		anyExtAuthzConfig, err := types.MarshalAny(extAuthzConfig)
 		if err != nil {
 			log.Fatalf("failed to marshal extAuthz config struct to typed struct: %s", err)
@@ -250,10 +244,15 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 		})
 	}
 
+	filter, err := filterBuilder.Filters()
+	if err != nil {
+		return &hcm.HttpConnectionManager{}, err
+	}
+
 	return &hcm.HttpConnectionManager{
 		CodecType:   hcm.HttpConnectionManager_AUTO,
 		StatPrefix:  "ingress_http",
-		HttpFilters: filterBuilder.Filters(),
+		HttpFilters: filter,
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
 			{
 				UpgradeType: "websocket",
@@ -268,16 +267,15 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 		Tracing:          &hcm.HttpConnectionManager_Tracing{},
 		AccessLog:        accessLoggers,
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: c.useRemoteAddress},
-	}
+	}, nil
 }
 
 func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
-	httpConnectionManager := c.makeConnectionManager(virtualHosts)
-	httpConfig, err := util.MessageToStruct(httpConnectionManager)
+	httpConnectionManager, err := c.makeConnectionManager(virtualHosts)
 	if err != nil {
-		return listener.FilterChain{}, fmt.Errorf("failed to convert virtualHost to envoy control plane struct: %s", err)
+		return listener.FilterChain{}, fmt.Errorf("failed to get httpConnectionManager: %s", err)
 	}
-	anyHttpConfig, err := types.MarshalAny(httpConfig)
+	anyHttpConfig, err := types.MarshalAny(httpConnectionManager)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
