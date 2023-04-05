@@ -371,27 +371,46 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 	}, nil
 }
 
-func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) (*listener.Listener, error) {
+func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address []string, envoyListenPort uint32) (*listener.Listener, error) {
 	tlsInspectorConfig, err := anypb.New(&tlsInspector.TlsInspector{})
 	if err != nil {
 		return &listener.Listener{}, fmt.Errorf("failed to marshal tls_inspector config struct to typed struct: %s", err)
 	}
 
-	if err != nil {
-		return &listener.Listener{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
+	additional_addresses := make([]*listener.AdditionalAddress, len(envoyListenerIpv4Address)-1)
+	for i, address := range envoyListenerIpv4Address {
+		/// Skip the first address as it will be the principal address of the listener
+		if i == 0 {
+			continue
+		}
+		additional_address := listener.AdditionalAddress{
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: address,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: envoyListenPort,
+						},
+					},
+				},
+			},
+		}
+		additional_addresses[i-1] = &additional_address
 	}
+
 	listener := listener.Listener{
 		Name: "listener_0",
 		Address: &core.Address{
 			Address: &core.Address_SocketAddress{
 				SocketAddress: &core.SocketAddress{
-					Address: envoyListenerIpv4Address,
+					Address: envoyListenerIpv4Address[0],
 					PortSpecifier: &core.SocketAddress_PortValue{
 						PortValue: envoyListenPort,
 					},
 				},
 			},
 		},
+		AdditionalAddresses: additional_addresses,
 		ListenerFilters: []*listener.ListenerFilter{
 			{
 				Name:       "envoy.filters.listener.tls_inspector",

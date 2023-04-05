@@ -3,9 +3,9 @@ package envoy
 type option func(c *KubernetesConfigurator)
 
 // WithEnvoyListenerIpv4Address configures envoy IPv4 listen address into a KubernetesConfigurator
-func WithEnvoyListenerIpv4Address(address string) option {
+func WithEnvoyListenerIpv4Address(addresses []string) option {
 	return func(c *KubernetesConfigurator) {
-		c.envoyListenerIpv4Address = address
+		c.envoyListenerIpv4Address = addresses
 	}
 }
 

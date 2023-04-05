@@ -38,7 +38,7 @@ type config struct {
 	Certificates               []envoy.Certificate       `json:"certificates"`
 	TrustCA                    string                    `json:"trustCA"`
 	UpstreamPort               uint32                    `json:"upstreamPort"`
-	EnvoyListenerIpv4Address   string                    `json:"envoyListenerIpv4Address"`
+	EnvoyListenerIpv4Address   []string                  `json:"envoyListenerIpv4Address"`
 	EnvoyPort                  uint32                    `json:"envoyPort"`
 	MaxEjectionPercentage      uint32                    `json:"maxEjectionPercentage"`
 	HostSelectionRetryAttempts int64                     `json:"hostSelectionRetryAttempts"`
@@ -88,7 +88,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
 	rootCmd.PersistentFlags().Bool("config-dump", false, "Enable config dump endpoint at /configdump on the health-address HTTP server")
 	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
-	rootCmd.PersistentFlags().String("envoy-listener-ipv4-address", "0.0.0.0", "IPv4 address by the envoy proxy to accept incoming connections")
+	rootCmd.PersistentFlags().StringSlice("envoy-listener-ipv4-address", []string{"0.0.0.0"}, "IPv4 address by the envoy proxy to accept incoming connections")
 	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
 	rootCmd.PersistentFlags().Int32("max-ejection-percentage", -1, "maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy.")
 	rootCmd.PersistentFlags().Int64("host-selection-retry-attempts", -1, "Number of host selection retry attempts. Set to value >=0 to enable")
@@ -242,7 +242,7 @@ func main(*cobra.Command, []string) error {
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"),
 		envoy.WithUpstreamPort(uint32(viper.GetInt32("upstreamPort"))),
-		envoy.WithEnvoyListenerIpv4Address(viper.GetString("envoyListenerIpv4Address")),
+		envoy.WithEnvoyListenerIpv4Address(viper.GetStringSlice("envoyListenerIpv4Address")),
 		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))),
 		envoy.WithOutlierPercentage(viper.GetInt32("maxEjectionPercentage")),
 		envoy.WithHostSelectionRetryAttempts(viper.GetInt64("hostSelectionRetryAttempts")),

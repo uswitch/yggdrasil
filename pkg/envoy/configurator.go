@@ -66,7 +66,7 @@ type KubernetesConfigurator struct {
 	trustCA                    string
 	upstreamPort               uint32
 	envoyListenPort            uint32
-	envoyListenerIpv4Address   string
+	envoyListenerIpv4Address   []string
 	outlierPercentage          int32
 	hostSelectionRetryAttempts int64
 	upstreamHealthCheck        UpstreamHealthCheck
