@@ -505,35 +505,43 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 		}
 	}
 
-	// httpOptions := &envoy_extension_http.HttpProtocolOptions{
-	// 	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-	// 		IdleTimeout:           &duration.Duration{Seconds: 60},
-	// 		MaxConnectionDuration: &durationpb.Duration{Seconds: 60},
-	// 	},
-	// 	UpstreamProtocolOptions: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_{
-	// 		ExplicitHttpConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig{
-	// 			ProtocolConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
-	// 				HttpProtocolOptions: &core.Http1ProtocolOptions{},
-	// 			},
-	// 		},
-	// 	},
-	// }
-	httpOptions := &envoy_extension_http.HttpProtocolOptions{
-		CommonHttpProtocolOptions: &core.HttpProtocolOptions{
-			IdleTimeout:              &duration.Duration{Seconds: 60},
-			MaxConnectionDuration:    &durationpb.Duration{Seconds: 60},
-			MaxRequestsPerConnection: &wrapperspb.UInt32Value{Value: 10000},
-		},
-		UpstreamProtocolOptions: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_{
-			ExplicitHttpConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig{
-				ProtocolConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
-					Http2ProtocolOptions: &core.Http2ProtocolOptions{
-						MaxConcurrentStreams: &wrapperspb.UInt32Value{Value: 128},
+	var httpOptions *envoy_extension_http.HttpProtocolOptions
+	if c.HttpVersion == "1.1" {
+
+		httpOptions = &envoy_extension_http.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				IdleTimeout:              &duration.Duration{Seconds: 60},
+				MaxConnectionDuration:    &durationpb.Duration{Seconds: 60},
+				MaxRequestsPerConnection: &wrapperspb.UInt32Value{Value: 10000},
+			},
+			UpstreamProtocolOptions: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 					},
 				},
 			},
-		},
+		}
+	} else { // TODO be more specific, handle default version
+		httpOptions = &envoy_extension_http.HttpProtocolOptions{
+			CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+				IdleTimeout:              &duration.Duration{Seconds: 60},
+				MaxConnectionDuration:    &durationpb.Duration{Seconds: 60},
+				MaxRequestsPerConnection: &wrapperspb.UInt32Value{Value: 10000},
+			},
+			UpstreamProtocolOptions: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &envoy_extension_http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+						Http2ProtocolOptions: &core.Http2ProtocolOptions{
+							AllowConnect:         true,
+							MaxConcurrentStreams: &wrapperspb.UInt32Value{Value: 128},
+						},
+					},
+				},
+			},
+		}
 	}
+
 	httpOptionsPb, err := anypb.New(httpOptions)
 	if err != nil {
 		log.Fatalf("Error marshaling httpOptions: %s", err)

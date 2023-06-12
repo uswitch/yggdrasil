@@ -101,6 +101,7 @@ type cluster struct {
 	VirtualHost     string
 	HealthCheckPath string
 	HealthCheckHost string // with Wildcard, the HealthCheck host can be different than the VirtualHost
+	HttpVersion     string
 	Timeout         time.Duration
 	Hosts           []LBHost
 }
@@ -135,6 +136,10 @@ func (c *cluster) Equals(other *cluster) bool {
 	}
 
 	if len(c.Hosts) != len(other.Hosts) {
+		return false
+	}
+
+	if c.HttpVersion != other.HttpVersion {
 		return false
 	}
 
@@ -261,6 +266,10 @@ func (ing *envoyIngress) setRouteTimeout(timeout time.Duration) {
 
 func (ing *envoyIngress) setPerTryTimeout(timeout time.Duration) {
 	ing.vhost.PerTryTimeout = timeout
+}
+
+func (ing *envoyIngress) setUpstreamHttpVersion(version string) {
+	ing.cluster.HttpVersion = version
 }
 
 // hostMatch returns true if tlsHost and ruleHost match, with wildcard support
@@ -423,6 +432,11 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 					if err == nil {
 						envoyIngress.setPerTryTimeout(timeout)
 					}
+				}
+
+				if i.Annotations["yggdrasil.uswitch.com/upstream-http-version"] != "" {
+					// TODO validate, add error path
+					envoyIngress.setUpstreamHttpVersion(i.Annotations["yggdrasil.uswitch.com/upstream-http-version"])
 				}
 
 				envoyIngress.addRetryOn(i)
