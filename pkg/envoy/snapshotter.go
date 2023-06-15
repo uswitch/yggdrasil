@@ -1,6 +1,8 @@
 package envoy
 
 import (
+	"context"
+
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
@@ -37,7 +39,7 @@ func (s *Snapshotter) snapshot() error {
 
 	log.Debugf("took snapshot: %+v", snapshot)
 
-	s.snapshotCache.SetSnapshot(s.configurator.NodeID(), snapshot)
+	s.snapshotCache.SetSnapshot(context.Background(), s.configurator.NodeID(), &snapshot)
 	return nil
 }
 

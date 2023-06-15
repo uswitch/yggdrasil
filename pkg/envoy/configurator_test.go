@@ -4,31 +4,20 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
-	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
 func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain, expected int) {
-	var connManager hcm.HttpConnectionManager
-	var dynamicAny ptypes.DynamicAny
-
-	err := ptypes.UnmarshalAny(filterChain.Filters[0].GetTypedConfig(), &dynamicAny)
+	filter, err := filterChain.Filters[0].GetTypedConfig().UnmarshalNew()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	structMessage, err := util.MessageToStruct(dynamicAny.Message)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = util.StructToMessage(structMessage, &connManager)
-	if err != nil {
+	connManager, ok := filter.(*hcm.HttpConnectionManager)
+	if !ok {
 		t.Fatal(err)
 	}
 
@@ -39,21 +28,6 @@ func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain,
 		t.Fatalf("Num virtual hosts: %d expected %d", len(virtualHosts), expected)
 	}
 
-}
-
-func assertTlsCertificate(t *testing.T, filterChain listener.FilterChain, expectedCert, expectedKey string) {
-	certificate := filterChain.HiddenEnvoyDeprecatedTlsContext.CommonTlsContext.TlsCertificates[0]
-
-	certFile := certificate.CertificateChain.Specifier.(*core.DataSource_InlineString)
-	keyFile := certificate.PrivateKey.Specifier.(*core.DataSource_InlineString)
-
-	if certFile.InlineString != expectedCert {
-		t.Fatalf("certficiate chain filename: '%s' expected '%s'", certFile.InlineString, expectedCert)
-	}
-
-	if keyFile.InlineString != expectedKey {
-		t.Fatalf("private key filename: '%s' expected '%s'", keyFile.InlineString, expectedKey)
-	}
 }
 
 func assertServerNames(t *testing.T, filterChain *listener.FilterChain, expectedServerNames []string) {
