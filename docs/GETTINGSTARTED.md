@@ -138,7 +138,7 @@ By default, Yggdrasil will use an upstream ingress port of 443 (HTTPS), as we ar
 With the Yggdrasil container running, we can now configure an envoy node. Pull an envoy v1.10 docker image with the following command:
 
 ```console
-$ docker pull envoyproxy/envoy:v1.19-latest
+$ docker pull envoyproxy/envoy:v1.26-latest
 ```
 
 Next, we will need to setup a minimal config file to create the admin listener for envoy, as well as pointing to our dynamic configuration provider - Yggdrasil:
@@ -190,7 +190,7 @@ Where `<yggdrasil-container-ip-address>` is the IP address of the Yggdrasil dock
 Run the envoy docker container with the following command, making sure to mount the minimal config file that you've created:
 
 ```console
-$ docker run -e ENVOY_UID=0 -w /var/log/envoy/ -v /path/to/envoy.yaml:/etc/envoy/envoy.yaml -p 10000:10000 -d envoyproxy/envoy:v1.19-latest --service-node envoy-node --service-cluster envoy-node --config-path /etc/envoy/envoy.yaml
+$ docker run -e ENVOY_UID=0 -w /var/log/envoy/ -v /path/to/envoy.yaml:/etc/envoy/envoy.yaml -p 10000:10000 -d envoyproxy/envoy:v1.26-latest --service-node envoy-node --service-cluster envoy-node --config-path /etc/envoy/envoy.yaml
 ```
 
 The working directory for the container is set to `/var/log/envoy/` in order to create it at runtime, as Yggdrasil will configure envoy to write access logs to this directory.
