@@ -32,10 +32,8 @@ import (
 var (
 	jsonFormat      *structpb.Struct
 	allowedRetryOns map[string]bool
-)
 
-func init() {
-	format := map[string]interface{}{
+	DefaultAccessLogFormat = map[string]interface{}{
 		"start_time":                "%START_TIME(%s.%3f)%",
 		"bytes_received":            "%BYTES_RECEIVED%",
 		"protocol":                  "%PROTOCOL%",
@@ -55,12 +53,9 @@ func init() {
 		"user_agent":                "%REQ(USER-AGENT)%",
 		"request_id":                "%REQ(X-REQUEST-ID)%",
 	}
-	b, err := structpb.NewValue(format)
-	if err != nil {
-		log.Fatal(err)
-	}
-	jsonFormat = b.GetStructValue()
+)
 
+func init() {
 	allowedRetryOns = map[string]bool{
 		"5xx":                        true,
 		"gateway-error":              true,
@@ -184,8 +179,18 @@ func makeGrpcLoggerConfig(cfg HttpGrpcLogger) *gal.HttpGrpcAccessLogConfig {
 	}
 }
 
-func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
-	// Access Logs
+func makeFileAccessLog(cfg AccessLogger) *eal.FileAccessLog {
+	format := DefaultAccessLogFormat
+	if len(cfg.Format) > 0 {
+		format = cfg.Format
+	}
+
+	b, err := structpb.NewValue(format)
+	if err != nil {
+		log.Fatal(err)
+	}
+	jsonFormat = b.GetStructValue()
+
 	accessLogConfig := &eal.FileAccessLog{
 		Path: "/var/log/envoy/access.log",
 		AccessLogFormat: &eal.FileAccessLog_LogFormat{
@@ -196,6 +201,13 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 			},
 		},
 	}
+
+	return accessLogConfig
+}
+
+func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
+	// Access Logs
+	accessLogConfig := makeFileAccessLog(c.accessLogger)
 	anyAccessLogConfig, err := anypb.New(accessLogConfig)
 	if err != nil {
 		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)

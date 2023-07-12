@@ -71,3 +71,10 @@ func WithDefaultRetryOn(defaultRetryOn string) option {
 		c.defaultRetryOn = defaultRetryOn
 	}
 }
+
+// WithAccessLog configures the access log formats
+func WithAccessLog(accessLogger AccessLogger) option {
+	return func(c *KubernetesConfigurator) {
+		c.accessLogger = accessLogger
+	}
+}

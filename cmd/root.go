@@ -45,6 +45,7 @@ type config struct {
 	UseRemoteAddress           bool                      `json:"useRemoteAddress"`
 	HttpExtAuthz               envoy.HttpExtAuthz        `json:"httpExtAuthz"`
 	HttpGrpcLogger             envoy.HttpGrpcLogger      `json:"httpGrpcLogger"`
+	AccessLogger               envoy.AccessLogger        `json:"accessLogger"`
 }
 
 // Hasher returns node ID as an ID
@@ -62,7 +63,7 @@ var rootCmd = &cobra.Command{
 	RunE:  main,
 }
 
-//Execute runs the function
+// Execute runs the function
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
@@ -104,6 +105,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("http-ext-authz-allow-partial-message", true, "When this field is true, Envoy will buffer the message until max_request_bytes is reached")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-pack-as-bytes", false, "When this field is true, Envoy will send the body as raw bytes.")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-failure-mode-allow", true, "Changes filters behaviour on errors")
+
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
@@ -230,6 +232,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
 		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
 		envoy.WithDefaultRetryOn(viper.GetString("retryOn")),
+		envoy.WithAccessLog(c.AccessLogger),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 

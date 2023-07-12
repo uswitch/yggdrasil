@@ -2,10 +2,12 @@ package envoy
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	eal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	"github.com/golang/protobuf/ptypes/duration"
 )
 
@@ -52,6 +54,55 @@ func TestMakeHealthChecksValidPath(t *testing.T) {
 
 	if httpCheck.HttpHealthCheck.Path != path {
 		t.Errorf("Expect health check path to be %s, but got %s", path, httpCheck.HttpHealthCheck.Path)
+	}
+
+}
+
+type accessLoggerTestCase struct {
+	name   string
+	format map[string]interface{}
+	custom bool
+}
+
+func TestAccessLoggerConfig(t *testing.T) {
+	testCases := []accessLoggerTestCase{
+		{name: "default log format", format: DefaultAccessLogFormat, custom: false},
+		{name: "custom log format", format: map[string]interface{}{"a-key": "a-format-specifier"}, custom: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := AccessLogger{}
+			if tc.custom {
+				cfg.Format = tc.format
+			}
+
+			fileAccessLog := makeFileAccessLog(cfg)
+			if fileAccessLog.Path != "/var/log/envoy/access.log" {
+				t.Errorf("Expected access log to use default path but was, %s", fileAccessLog.Path)
+			}
+
+			alf, ok := fileAccessLog.AccessLogFormat.(*eal.FileAccessLog_LogFormat)
+			if !ok {
+				t.Fatalf("File Access Log Format had incorrect type, should be FileAccessLog_LogFormat")
+			}
+
+			lf, ok := alf.LogFormat.Format.(*core.SubstitutionFormatString_JsonFormat)
+			if !ok {
+				t.Fatalf("LogFormat had incorrect type, should be SubstitutionFormatString_JsonFormat")
+			}
+
+			format := lf.JsonFormat.AsMap()
+			if !reflect.DeepEqual(format, tc.format) {
+				t.Errorf("Log format map should match configuration")
+			}
+		})
+	}
+}
+
+func TestAccessLoggerDefault(t *testing.T) {
+	_ = AccessLogger{
+		Format: map[string]interface{}{},
 	}
 
 }
