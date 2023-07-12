@@ -282,6 +282,7 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 
 	tls := &auth.DownstreamTlsContext{}
 	tls.CommonTlsContext = &auth.CommonTlsContext{
+		AlpnProtocols: c.alpnProtocols,
 		TlsCertificates: []*auth.TlsCertificate{
 			{
 				CertificateChain: &core.DataSource{

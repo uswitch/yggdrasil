@@ -45,6 +45,7 @@ type config struct {
 	UseRemoteAddress           bool                      `json:"useRemoteAddress"`
 	HttpExtAuthz               envoy.HttpExtAuthz        `json:"httpExtAuthz"`
 	HttpGrpcLogger             envoy.HttpGrpcLogger      `json:"httpGrpcLogger"`
+	AlpnProtocols              []string                  `json:"alpnProtocols"`
 }
 
 // Hasher returns node ID as an ID
@@ -104,6 +105,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("http-ext-authz-allow-partial-message", true, "When this field is true, Envoy will buffer the message until max_request_bytes is reached")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-pack-as-bytes", false, "When this field is true, Envoy will send the body as raw bytes.")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-failure-mode-allow", true, "Changes filters behaviour on errors")
+	rootCmd.PersistentFlags().StringSlice("alpn-protocols", []string{}, "exposed listener ALPN protocols")
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
@@ -134,6 +136,7 @@ func init() {
 	viper.BindPFlag("httpExtAuthz.allowPartialMessage", rootCmd.PersistentFlags().Lookup("http-ext-authz-allow-partial-message"))
 	viper.BindPFlag("httpExtAuthz.packAsBytes", rootCmd.PersistentFlags().Lookup("http-ext-authz-pack-as-bytes"))
 	viper.BindPFlag("httpExtAuthz.FailureModeAllow", rootCmd.PersistentFlags().Lookup("http-ext-authz-failure-mode-allow"))
+	viper.BindPFlag("alpnProtocols", rootCmd.PersistentFlags().Lookup("alpn-protocols"))
 }
 
 func initConfig() {
@@ -230,6 +233,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
 		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
 		envoy.WithDefaultRetryOn(viper.GetString("retryOn")),
+		envoy.WithAlpnProtocols(viper.GetStringSlice("alpnProtocols")),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 

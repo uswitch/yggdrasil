@@ -71,3 +71,10 @@ func WithDefaultRetryOn(defaultRetryOn string) option {
 		c.defaultRetryOn = defaultRetryOn
 	}
 }
+
+// WithAlpnProtocols configures the the exposed listener ALPN protocols
+func WithAlpnProtocols(alpnProtocols []string) option {
+	return func(c *KubernetesConfigurator) {
+		c.alpnProtocols = alpnProtocols
+	}
+}
