@@ -34,24 +34,24 @@ var (
 	allowedRetryOns map[string]bool
 
 	DefaultAccessLogFormat = map[string]interface{}{
-		"start_time":                "%START_TIME(%s.%3f)%",
 		"bytes_received":            "%BYTES_RECEIVED%",
-		"protocol":                  "%PROTOCOL%",
-		"response_code":             "%RESPONSE_CODE%",
 		"bytes_sent":                "%BYTES_SENT%",
-		"duration":                  "%DURATION%",
-		"response_flags":            "%RESPONSE_FLAGS%",
-		"upstream_host":             "%UPSTREAM_HOST%",
-		"upstream_cluster":          "%UPSTREAM_CLUSTER%",
-		"upstream_local_address":    "%UPSTREAM_LOCAL_ADDRESS%",
-		"downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%",
 		"downstream_local_address":  "%DOWNSTREAM_LOCAL_ADDRESS%",
+		"downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%",
+		"duration":                  "%DURATION%",
+		"forwarded_for":             "%REQ(X-FORWARDED-FOR)%",
+		"protocol":                  "%PROTOCOL%",
+		"request_id":                "%REQ(X-REQUEST-ID)%",
 		"request_method":            "%REQ(:METHOD)%",
 		"request_path":              "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+		"response_code":             "%RESPONSE_CODE%",
+		"response_flags":            "%RESPONSE_FLAGS%",
+		"start_time":                "%START_TIME(%s.%3f)%",
+		"upstream_cluster":          "%UPSTREAM_CLUSTER%",
+		"upstream_host":             "%UPSTREAM_HOST%",
+		"upstream_local_address":    "%UPSTREAM_LOCAL_ADDRESS%",
 		"upstream_service_time":     "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
-		"forwarded_for":             "%REQ(X-FORWARDED-FOR)%",
 		"user_agent":                "%REQ(USER-AGENT)%",
-		"request_id":                "%REQ(X-REQUEST-ID)%",
 	}
 )
 
