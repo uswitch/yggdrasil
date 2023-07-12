@@ -100,13 +100,6 @@ func TestAccessLoggerConfig(t *testing.T) {
 	}
 }
 
-func TestAccessLoggerDefault(t *testing.T) {
-	_ = AccessLogger{
-		Format: map[string]interface{}{},
-	}
-
-}
-
 func mustParseDuration(dur string) time.Duration {
 	d, err := time.ParseDuration(dur)
 	if err != nil {

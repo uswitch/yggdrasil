@@ -32,4 +32,6 @@ The Access log format is configurable via the Yggdrasil config file only. It is 
 
 The config above would be the same as the default access logger config shipped with Yggdasil. Thus if no format is provided this will be the format used.
 
+[See Envoy docs for more on access log formats](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#config-access-log-default-format)
+
 The access log is written to `/var/log/envoy/access.log` which is not currently configurable.
