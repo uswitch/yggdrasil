@@ -19,10 +19,11 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	previousHosts "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	types "github.com/golang/protobuf/ptypes"
+	matcherv3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -95,7 +96,7 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetry
 
 	hosts := &previousHosts.PreviousHostsPredicate{}
 
-	anyHosts, err := types.MarshalAny(hosts)
+	anyHosts, err := anypb.New(hosts)
 	if err != nil {
 		return &route.VirtualHost{}, fmt.Errorf("failed to marshal hosts config struct to typed struct: %s", err)
 	}
@@ -132,8 +133,10 @@ func makeHealthConfig() *hcfg.HealthCheck {
 		Headers: []*route.HeaderMatcher{
 			{
 				Name: ":path",
-				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-					ExactMatch: "/yggdrasil/status",
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcherv3.StringMatcher{
+						MatchPattern: &matcherv3.StringMatcher_Exact{Exact: "/yggdrasil/status"},
+					},
 				},
 			},
 		},
@@ -193,7 +196,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 			},
 		},
 	}
-	anyAccessLogConfig, err := types.MarshalAny(accessLogConfig)
+	anyAccessLogConfig, err := anypb.New(accessLogConfig)
 	if err != nil {
 		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)
 	}
@@ -206,8 +209,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	}
 
 	if c.httpGrpcLogger.Cluster != "" {
-		grpcLoggerConfig := makeGrpcLoggerConfig(c.httpGrpcLogger)
-		anyGrpcLoggerConfig, err := types.MarshalAny(grpcLoggerConfig)
+		anyGrpcLoggerConfig, err := anypb.New(makeGrpcLoggerConfig(c.httpGrpcLogger))
 		if err != nil {
 			log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 		}
@@ -220,8 +222,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	// HTTP Filters
 	filterBuilder := &httpFilterBuilder{}
 
-	healthConfig := makeHealthConfig()
-	anyHealthConfig, err := types.MarshalAny(healthConfig)
+	anyHealthConfig, err := anypb.New(makeHealthConfig())
 	if err != nil {
 		log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 	}
@@ -232,8 +233,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	})
 
 	if c.httpExtAuthz.Cluster != "" {
-		extAuthzConfig := makeExtAuthzConfig(c.httpExtAuthz)
-		anyExtAuthzConfig, err := types.MarshalAny(extAuthzConfig)
+		anyExtAuthzConfig, err := anypb.New(makeExtAuthzConfig(c.httpExtAuthz))
 		if err != nil {
 			log.Fatalf("failed to marshal extAuthz config struct to typed struct: %s", err)
 		}
@@ -275,7 +275,7 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to get httpConnectionManager: %s", err)
 	}
-	anyHttpConfig, err := types.MarshalAny(httpConnectionManager)
+	anyHttpConfig, err := anypb.New(httpConnectionManager)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
@@ -294,7 +294,7 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 		},
 	}
 
-	anyTls, err := types.MarshalAny(tls)
+	anyTls, err := anypb.New(tls)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
 	}
@@ -329,10 +329,11 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 }
 
 func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) (*listener.Listener, error) {
+	tlsInspectorConfig, err := anypb.New(&tlsInspector.TlsInspector{})
+	if err != nil {
+		return &listener.Listener{}, fmt.Errorf("failed to marshal tls_inspector config struct to typed struct: %s", err)
+	}
 
-	tls := &tlsInspector.TlsInspector{}
-
-	anyTls, err := types.MarshalAny(tls)
 	if err != nil {
 		return &listener.Listener{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
 	}
@@ -351,7 +352,7 @@ func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address
 		ListenerFilters: []*listener.ListenerFilter{
 			{
 				Name:       "envoy.filters.listener.tls_inspector",
-				ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: anyTls},
+				ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: tlsInspectorConfig},
 			},
 		},
 		FilterChains: filterChains,
@@ -425,7 +426,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	var anyTls *any.Any
 
 	if tls != nil {
-		anyTls, err = types.MarshalAny(tls)
+		anyTls, err = anypb.New(tls)
 		if err != nil {
 			log.Printf("Error marhsalling cluster TLS config: %s", err)
 		}
