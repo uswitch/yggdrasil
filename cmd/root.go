@@ -83,6 +83,7 @@ func init() {
 	rootCmd.PersistentFlags().StringSlice("ingress-classes", nil, "Ingress classes to watch")
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
+	rootCmd.PersistentFlags().Bool("config-dump", false, "Enabled config dump endpoint")
 	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
 	rootCmd.PersistentFlags().String("envoy-listener-ipv4-address", "0.0.0.0", "IPv4 address by the envoy proxy to accept incoming connections")
 	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
@@ -107,6 +108,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("http-ext-authz-failure-mode-allow", true, "Changes filters behaviour on errors")
 
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	viper.BindPFlag("configDump", rootCmd.PersistentFlags().Lookup("config-dump"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
@@ -240,7 +242,7 @@ func main(*cobra.Command, []string) error {
 	go aggregator.Run()
 
 	envoyServer := server.NewServer(ctx, envoyCache, &callbacks{})
-	go runEnvoyServer(envoyServer, viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
+	go runEnvoyServer(envoyServer, snapshotter, viper.GetBool("configDump"), viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
 
 	<-stopCh
 	return nil

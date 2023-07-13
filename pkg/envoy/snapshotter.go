@@ -10,21 +10,21 @@ import (
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
-//Configurator is an interface that implements Generate and NodeID
+// Configurator is an interface that implements Generate and NodeID
 type Configurator interface {
 	Generate([]*k8s.Ingress) (cache.Snapshot, error)
 	NodeID() string
 }
 
-//Snapshotter watches for Ingress changes and updates the
-//config snapshot
+// Snapshotter watches for Ingress changes and updates the
+// config snapshot
 type Snapshotter struct {
 	snapshotCache cache.SnapshotCache
 	configurator  Configurator
 	aggregator    *k8s.Aggregator
 }
 
-//NewSnapshotter returns a new Snapshotter
+// NewSnapshotter returns a new Snapshotter
 func NewSnapshotter(snapshotCache cache.SnapshotCache, config Configurator, aggregator *k8s.Aggregator) *Snapshotter {
 	return &Snapshotter{snapshotCache: snapshotCache, configurator: config, aggregator: aggregator}
 }
@@ -40,10 +40,15 @@ func (s *Snapshotter) snapshot() error {
 	log.Debugf("took snapshot: %+v", snapshot)
 
 	s.snapshotCache.SetSnapshot(context.Background(), s.configurator.NodeID(), &snapshot)
+
 	return nil
 }
 
-//Run will periodically refresh the snapshot
+func (s *Snapshotter) CurrentSnapshot() (cache.ResourceSnapshot, error) {
+	return s.snapshotCache.GetSnapshot(s.configurator.NodeID())
+}
+
+// Run will periodically refresh the snapshot
 func (s *Snapshotter) Run(a *k8s.Aggregator) {
 	log.Infof("started snapshotter")
 	hadChanges := false

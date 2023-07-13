@@ -11,7 +11,8 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	types "github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
@@ -186,7 +187,7 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 	if err != nil {
 		return nil, err
 	}
-	anyHttpConfig, err := types.MarshalAny(httpConnectionManager)
+	anyHttpConfig, err := anypb.New(httpConnectionManager)
 	if err != nil {
 		log.Fatalf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
