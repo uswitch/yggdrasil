@@ -169,6 +169,7 @@ The Yggdrasil-specific metrics which are available from the API are:
 --ca string                                   trustedCA
 --cert string                                 certfile
 --config string                               config file
+--config-dump                                 Enable config dump endpoint at /configdump on the health-address HTTP server
 --debug                                       Log at debug level
 --envoy-listener-ipv4-address string          IPv4 address by the envoy proxy to accept incoming connections (default "0.0.0.0")
 --envoy-port uint32                           port by the envoy proxy to accept incoming connections (default 10000)

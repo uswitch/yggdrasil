@@ -32,35 +32,30 @@ import (
 var (
 	jsonFormat      *structpb.Struct
 	allowedRetryOns map[string]bool
+
+	DefaultAccessLogFormat = map[string]interface{}{
+		"bytes_received":            "%BYTES_RECEIVED%",
+		"bytes_sent":                "%BYTES_SENT%",
+		"downstream_local_address":  "%DOWNSTREAM_LOCAL_ADDRESS%",
+		"downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%",
+		"duration":                  "%DURATION%",
+		"forwarded_for":             "%REQ(X-FORWARDED-FOR)%",
+		"protocol":                  "%PROTOCOL%",
+		"request_id":                "%REQ(X-REQUEST-ID)%",
+		"request_method":            "%REQ(:METHOD)%",
+		"request_path":              "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+		"response_code":             "%RESPONSE_CODE%",
+		"response_flags":            "%RESPONSE_FLAGS%",
+		"start_time":                "%START_TIME(%s.%3f)%",
+		"upstream_cluster":          "%UPSTREAM_CLUSTER%",
+		"upstream_host":             "%UPSTREAM_HOST%",
+		"upstream_local_address":    "%UPSTREAM_LOCAL_ADDRESS%",
+		"upstream_service_time":     "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+		"user_agent":                "%REQ(USER-AGENT)%",
+	}
 )
 
 func init() {
-	format := map[string]interface{}{
-		"start_time":                "%START_TIME(%s.%3f)%",
-		"bytes_received":            "%BYTES_RECEIVED%",
-		"protocol":                  "%PROTOCOL%",
-		"response_code":             "%RESPONSE_CODE%",
-		"bytes_sent":                "%BYTES_SENT%",
-		"duration":                  "%DURATION%",
-		"response_flags":            "%RESPONSE_FLAGS%",
-		"upstream_host":             "%UPSTREAM_HOST%",
-		"upstream_cluster":          "%UPSTREAM_CLUSTER%",
-		"upstream_local_address":    "%UPSTREAM_LOCAL_ADDRESS%",
-		"downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%",
-		"downstream_local_address":  "%DOWNSTREAM_LOCAL_ADDRESS%",
-		"request_method":            "%REQ(:METHOD)%",
-		"request_path":              "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
-		"upstream_service_time":     "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
-		"forwarded_for":             "%REQ(X-FORWARDED-FOR)%",
-		"user_agent":                "%REQ(USER-AGENT)%",
-		"request_id":                "%REQ(X-REQUEST-ID)%",
-	}
-	b, err := structpb.NewValue(format)
-	if err != nil {
-		log.Fatal(err)
-	}
-	jsonFormat = b.GetStructValue()
-
 	allowedRetryOns = map[string]bool{
 		"5xx":                        true,
 		"gateway-error":              true,
@@ -184,8 +179,18 @@ func makeGrpcLoggerConfig(cfg HttpGrpcLogger) *gal.HttpGrpcAccessLogConfig {
 	}
 }
 
-func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
-	// Access Logs
+func makeFileAccessLog(cfg AccessLogger) *eal.FileAccessLog {
+	format := DefaultAccessLogFormat
+	if len(cfg.Format) > 0 {
+		format = cfg.Format
+	}
+
+	b, err := structpb.NewValue(format)
+	if err != nil {
+		log.Fatal(err)
+	}
+	jsonFormat = b.GetStructValue()
+
 	accessLogConfig := &eal.FileAccessLog{
 		Path: "/var/log/envoy/access.log",
 		AccessLogFormat: &eal.FileAccessLog_LogFormat{
@@ -196,6 +201,13 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 			},
 		},
 	}
+
+	return accessLogConfig
+}
+
+func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
+	// Access Logs
+	accessLogConfig := makeFileAccessLog(c.accessLogger)
 	anyAccessLogConfig, err := anypb.New(accessLogConfig)
 	if err != nil {
 		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)

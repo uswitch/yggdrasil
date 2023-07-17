@@ -45,6 +45,7 @@ type config struct {
 	UseRemoteAddress           bool                      `json:"useRemoteAddress"`
 	HttpExtAuthz               envoy.HttpExtAuthz        `json:"httpExtAuthz"`
 	HttpGrpcLogger             envoy.HttpGrpcLogger      `json:"httpGrpcLogger"`
+	AccessLogger               envoy.AccessLogger        `json:"accessLogger"`
 }
 
 // Hasher returns node ID as an ID
@@ -62,7 +63,7 @@ var rootCmd = &cobra.Command{
 	RunE:  main,
 }
 
-//Execute runs the function
+// Execute runs the function
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
@@ -82,6 +83,7 @@ func init() {
 	rootCmd.PersistentFlags().StringSlice("ingress-classes", nil, "Ingress classes to watch")
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
+	rootCmd.PersistentFlags().Bool("config-dump", false, "Enable config dump endpoint at /configdump on the health-address HTTP server")
 	rootCmd.PersistentFlags().Uint32("upstream-port", 443, "port used to connect to the upstream ingresses")
 	rootCmd.PersistentFlags().String("envoy-listener-ipv4-address", "0.0.0.0", "IPv4 address by the envoy proxy to accept incoming connections")
 	rootCmd.PersistentFlags().Uint32("envoy-port", 10000, "port by the envoy proxy to accept incoming connections")
@@ -104,7 +106,9 @@ func init() {
 	rootCmd.PersistentFlags().Bool("http-ext-authz-allow-partial-message", true, "When this field is true, Envoy will buffer the message until max_request_bytes is reached")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-pack-as-bytes", false, "When this field is true, Envoy will send the body as raw bytes.")
 	rootCmd.PersistentFlags().Bool("http-ext-authz-failure-mode-allow", true, "Changes filters behaviour on errors")
+
 	viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug"))
+	viper.BindPFlag("configDump", rootCmd.PersistentFlags().Lookup("config-dump"))
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
@@ -230,6 +234,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
 		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
 		envoy.WithDefaultRetryOn(viper.GetString("retryOn")),
+		envoy.WithAccessLog(c.AccessLogger),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 
@@ -237,7 +242,7 @@ func main(*cobra.Command, []string) error {
 	go aggregator.Run()
 
 	envoyServer := server.NewServer(ctx, envoyCache, &callbacks{})
-	go runEnvoyServer(envoyServer, viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
+	go runEnvoyServer(envoyServer, snapshotter, viper.GetBool("configDump"), viper.GetString("address"), viper.GetString("healthAddress"), ctx.Done())
 
 	<-stopCh
 	return nil

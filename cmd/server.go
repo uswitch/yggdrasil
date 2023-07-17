@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,6 +17,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+
+	"github.com/uswitch/yggdrasil/pkg/envoy"
 )
 
 type callbacks struct {
@@ -49,7 +52,7 @@ func (c *callbacks) OnFetchResponse(*discovery.DiscoveryRequest, *discovery.Disc
 	c.fetchResp++
 }
 
-func runEnvoyServer(envoyServer server.Server, address string, healthAddress string, stopCh <-chan struct{}) {
+func runEnvoyServer(envoyServer server.Server, snapshotter *envoy.Snapshotter, enableConfigDump bool, address string, healthAddress string, stopCh <-chan struct{}) {
 
 	grpcServer := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
@@ -76,6 +79,9 @@ func runEnvoyServer(envoyServer server.Server, address string, healthAddress str
 
 	healthMux.Handle("/metrics", promhttp.Handler())
 	healthMux.HandleFunc("/healthz", health)
+	if enableConfigDump {
+		healthMux.HandleFunc("/configdump", handleConfigDump(snapshotter))
+	}
 
 	go func() {
 		if err = grpcServer.Serve(lis); err != nil {
@@ -96,4 +102,35 @@ func runEnvoyServer(envoyServer server.Server, address string, healthAddress str
 
 func health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
+}
+
+type ConfigDumpError struct {
+	Error   error
+	Message string
+}
+
+func handleConfigDump(snapshotter *envoy.Snapshotter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		snapshot, err := snapshotter.ConfigDump()
+		if err != nil {
+			respErr := ConfigDumpError{
+				Error:   err,
+				Message: "Unable to get current snapshot from snapshotter, see error for details.",
+			}
+
+			w.Header().Add("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(respErr)
+			return
+		}
+
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(snapshot)
+	}
 }
