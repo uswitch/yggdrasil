@@ -15,13 +15,15 @@ import (
 	gal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	eauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	hcfg "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
+	tlsInspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	previousHosts "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
-	types "github.com/golang/protobuf/ptypes"
+	matcherv3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -30,35 +32,30 @@ import (
 var (
 	jsonFormat      *structpb.Struct
 	allowedRetryOns map[string]bool
+
+	DefaultAccessLogFormat = map[string]interface{}{
+		"bytes_received":            "%BYTES_RECEIVED%",
+		"bytes_sent":                "%BYTES_SENT%",
+		"downstream_local_address":  "%DOWNSTREAM_LOCAL_ADDRESS%",
+		"downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%",
+		"duration":                  "%DURATION%",
+		"forwarded_for":             "%REQ(X-FORWARDED-FOR)%",
+		"protocol":                  "%PROTOCOL%",
+		"request_id":                "%REQ(X-REQUEST-ID)%",
+		"request_method":            "%REQ(:METHOD)%",
+		"request_path":              "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+		"response_code":             "%RESPONSE_CODE%",
+		"response_flags":            "%RESPONSE_FLAGS%",
+		"start_time":                "%START_TIME(%s.%3f)%",
+		"upstream_cluster":          "%UPSTREAM_CLUSTER%",
+		"upstream_host":             "%UPSTREAM_HOST%",
+		"upstream_local_address":    "%UPSTREAM_LOCAL_ADDRESS%",
+		"upstream_service_time":     "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+		"user_agent":                "%REQ(USER-AGENT)%",
+	}
 )
 
 func init() {
-	format := map[string]interface{}{
-		"start_time":                "%START_TIME(%s.%3f)%",
-		"bytes_received":            "%BYTES_RECEIVED%",
-		"protocol":                  "%PROTOCOL%",
-		"response_code":             "%RESPONSE_CODE%",
-		"bytes_sent":                "%BYTES_SENT%",
-		"duration":                  "%DURATION%",
-		"response_flags":            "%RESPONSE_FLAGS%",
-		"upstream_host":             "%UPSTREAM_HOST%",
-		"upstream_cluster":          "%UPSTREAM_CLUSTER%",
-		"upstream_local_address":    "%UPSTREAM_LOCAL_ADDRESS%",
-		"downstream_remote_address": "%DOWNSTREAM_REMOTE_ADDRESS%",
-		"downstream_local_address":  "%DOWNSTREAM_LOCAL_ADDRESS%",
-		"request_method":            "%REQ(:METHOD)%",
-		"request_path":              "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
-		"upstream_service_time":     "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
-		"forwarded_for":             "%REQ(X-FORWARDED-FOR)%",
-		"user_agent":                "%REQ(USER-AGENT)%",
-		"request_id":                "%REQ(X-REQUEST-ID)%",
-	}
-	b, err := structpb.NewValue(format)
-	if err != nil {
-		log.Fatal(err)
-	}
-	jsonFormat = b.GetStructValue()
-
 	allowedRetryOns = map[string]bool{
 		"5xx":                        true,
 		"gateway-error":              true,
@@ -73,7 +70,7 @@ func init() {
 	}
 }
 
-func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetryOn string) *route.VirtualHost {
+func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetryOn string) (*route.VirtualHost, error) {
 	retryOn := vhost.RetryOn
 	if retryOn == "" {
 		retryOn = defaultRetryOn
@@ -92,10 +89,18 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetry
 		},
 	}
 
+	hosts := &previousHosts.PreviousHostsPredicate{}
+
+	anyHosts, err := anypb.New(hosts)
+	if err != nil {
+		return &route.VirtualHost{}, fmt.Errorf("failed to marshal hosts config struct to typed struct: %s", err)
+	}
+
 	if reselectionAttempts >= 0 {
 		action.Route.RetryPolicy.RetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
 			{
-				Name: "envoy.retry_host_predicates.previous_hosts",
+				Name:       "envoy.retry_host_predicates.previous_hosts",
+				ConfigType: &route.RetryPolicy_RetryHostPredicate_TypedConfig{TypedConfig: anyHosts},
 			},
 		}
 		action.Route.RetryPolicy.HostSelectionRetryMaxAttempts = reselectionAttempts
@@ -114,7 +119,7 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetry
 			},
 		},
 	}
-	return &virtualHost
+	return &virtualHost, nil
 }
 
 func makeHealthConfig() *hcfg.HealthCheck {
@@ -123,8 +128,10 @@ func makeHealthConfig() *hcfg.HealthCheck {
 		Headers: []*route.HeaderMatcher{
 			{
 				Name: ":path",
-				HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-					ExactMatch: "/yggdrasil/status",
+				HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+					StringMatch: &matcherv3.StringMatcher{
+						MatchPattern: &matcherv3.StringMatcher_Exact{Exact: "/yggdrasil/status"},
+					},
 				},
 			},
 		},
@@ -147,6 +154,7 @@ func makeExtAuthzConfig(cfg HttpExtAuthz) *eauthz.ExtAuthz {
 		WithRequestBody: &eauthz.BufferSettings{
 			MaxRequestBytes:     cfg.MaxRequestBytes,
 			AllowPartialMessage: cfg.AllowPartialMessage,
+			PackAsBytes:         cfg.PackAsBytes,
 		},
 		FailureModeAllow: cfg.FailureModeAllow,
 	}
@@ -166,29 +174,41 @@ func makeGrpcLoggerConfig(cfg HttpGrpcLogger) *gal.HttpGrpcAccessLogConfig {
 			},
 			TransportApiVersion: core.ApiVersion_V3,
 		},
-		AdditionalRequestHeadersToLog:  cfg.AdditionalRequestHeaders,
-		AdditionalResponseHeadersToLog: cfg.AdditionalResponseHeaders,
+		AdditionalRequestHeadersToLog:  cfg.RequestHeaders,
+		AdditionalResponseHeadersToLog: cfg.ResponseHeaders,
 	}
 }
 
-func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) *hcm.HttpConnectionManager {
-	// Access Logs
-	accessLogConfig, err := util.MessageToStruct(
-		&eal.FileAccessLog{
-			Path: "/var/log/envoy/access.log",
-			AccessLogFormat: &eal.FileAccessLog_LogFormat{
-				LogFormat: &core.SubstitutionFormatString{
-					Format: &core.SubstitutionFormatString_JsonFormat{
-						JsonFormat: jsonFormat,
-					},
+func makeFileAccessLog(cfg AccessLogger) *eal.FileAccessLog {
+	format := DefaultAccessLogFormat
+	if len(cfg.Format) > 0 {
+		format = cfg.Format
+	}
+
+	b, err := structpb.NewValue(format)
+	if err != nil {
+		log.Fatal(err)
+	}
+	jsonFormat = b.GetStructValue()
+
+	accessLogConfig := &eal.FileAccessLog{
+		Path: "/var/log/envoy/access.log",
+		AccessLogFormat: &eal.FileAccessLog_LogFormat{
+			LogFormat: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_JsonFormat{
+					JsonFormat: jsonFormat,
 				},
 			},
 		},
-	)
-	if err != nil {
-		log.Fatalf("failed to convert access log proto message to struct: %s", err)
 	}
-	anyAccessLogConfig, err := types.MarshalAny(accessLogConfig)
+
+	return accessLogConfig
+}
+
+func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
+	// Access Logs
+	accessLogConfig := makeFileAccessLog(c.accessLogger)
+	anyAccessLogConfig, err := anypb.New(accessLogConfig)
 	if err != nil {
 		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)
 	}
@@ -201,11 +221,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	}
 
 	if c.httpGrpcLogger.Cluster != "" {
-		grpcLoggerConfig, err := util.MessageToStruct(makeGrpcLoggerConfig(c.httpGrpcLogger))
-		if err != nil {
-			log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
-		}
-		anyGrpcLoggerConfig, err := types.MarshalAny(grpcLoggerConfig)
+		anyGrpcLoggerConfig, err := anypb.New(makeGrpcLoggerConfig(c.httpGrpcLogger))
 		if err != nil {
 			log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 		}
@@ -218,11 +234,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	// HTTP Filters
 	filterBuilder := &httpFilterBuilder{}
 
-	healthConfig, err := util.MessageToStruct(makeHealthConfig())
-	if err != nil {
-		log.Fatalf("failed to convert healthcheck proto message to struct: %s", err)
-	}
-	anyHealthConfig, err := types.MarshalAny(healthConfig)
+	anyHealthConfig, err := anypb.New(makeHealthConfig())
 	if err != nil {
 		log.Fatalf("failed to marshal healthcheck config struct to typed struct: %s", err)
 	}
@@ -233,11 +245,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	})
 
 	if c.httpExtAuthz.Cluster != "" {
-		extAuthzConfig, err := util.MessageToStruct(makeExtAuthzConfig(c.httpExtAuthz))
-		if err != nil {
-			log.Fatalf("failed to convert extAuthz proto message to struct: %s", err)
-		}
-		anyExtAuthzConfig, err := types.MarshalAny(extAuthzConfig)
+		anyExtAuthzConfig, err := anypb.New(makeExtAuthzConfig(c.httpExtAuthz))
 		if err != nil {
 			log.Fatalf("failed to marshal extAuthz config struct to typed struct: %s", err)
 		}
@@ -248,10 +256,15 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 		})
 	}
 
+	filter, err := filterBuilder.Filters()
+	if err != nil {
+		return &hcm.HttpConnectionManager{}, err
+	}
+
 	return &hcm.HttpConnectionManager{
 		CodecType:   hcm.HttpConnectionManager_AUTO,
 		StatPrefix:  "ingress_http",
-		HttpFilters: filterBuilder.Filters(),
+		HttpFilters: filter,
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
 			{
 				UpgradeType: "websocket",
@@ -266,16 +279,15 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 		Tracing:          &hcm.HttpConnectionManager_Tracing{},
 		AccessLog:        accessLoggers,
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: c.useRemoteAddress},
-	}
+	}, nil
 }
 
 func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
-	httpConnectionManager := c.makeConnectionManager(virtualHosts)
-	httpConfig, err := util.MessageToStruct(httpConnectionManager)
+	httpConnectionManager, err := c.makeConnectionManager(virtualHosts)
 	if err != nil {
-		return listener.FilterChain{}, fmt.Errorf("failed to convert virtualHost to envoy control plane struct: %s", err)
+		return listener.FilterChain{}, fmt.Errorf("failed to get httpConnectionManager: %s", err)
 	}
-	anyHttpConfig, err := types.MarshalAny(httpConfig)
+	anyHttpConfig, err := anypb.New(httpConnectionManager)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to marshal HTTP config struct to typed struct: %s", err)
 	}
@@ -294,7 +306,7 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 		},
 	}
 
-	anyTls, err := types.MarshalAny(tls)
+	anyTls, err := anypb.New(tls)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
 	}
@@ -328,8 +340,15 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 	}, nil
 }
 
-func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) *listener.Listener {
+func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address string, envoyListenPort uint32) (*listener.Listener, error) {
+	tlsInspectorConfig, err := anypb.New(&tlsInspector.TlsInspector{})
+	if err != nil {
+		return &listener.Listener{}, fmt.Errorf("failed to marshal tls_inspector config struct to typed struct: %s", err)
+	}
 
+	if err != nil {
+		return &listener.Listener{}, fmt.Errorf("failed to marshal TLS config struct to typed struct: %s", err)
+	}
 	listener := listener.Listener{
 		Name: "listener_0",
 		Address: &core.Address{
@@ -343,14 +362,17 @@ func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address
 			},
 		},
 		ListenerFilters: []*listener.ListenerFilter{
-			{Name: "envoy.filters.listener.tls_inspector"},
+			{
+				Name:       "envoy.filters.listener.tls_inspector",
+				ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: tlsInspectorConfig},
+			},
 		},
 		FilterChains: filterChains,
 		// Setting the TrafficDirection here for tracing
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 
-	return &listener
+	return &listener, nil
 }
 
 func makeAddresses(addresses []string, upstreamPort uint32) []*core.Address {
@@ -416,7 +438,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 	var anyTls *any.Any
 
 	if tls != nil {
-		anyTls, err = types.MarshalAny(tls)
+		anyTls, err = anypb.New(tls)
 		if err != nil {
 			log.Printf("Error marhsalling cluster TLS config: %s", err)
 		}

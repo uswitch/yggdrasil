@@ -4,32 +4,21 @@ import (
 	"testing"
 	"time"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
-	util "github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 	v1 "k8s.io/api/core/v1"
 )
 
 func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain, expected int) {
-	var connManager hcm.HttpConnectionManager
-	var dynamicAny ptypes.DynamicAny
-
-	err := ptypes.UnmarshalAny(filterChain.Filters[0].GetTypedConfig(), &dynamicAny)
+	filter, err := filterChain.Filters[0].GetTypedConfig().UnmarshalNew()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	structMessage, err := util.MessageToStruct(dynamicAny.Message)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = util.StructToMessage(structMessage, &connManager)
-	if err != nil {
+	connManager, ok := filter.(*hcm.HttpConnectionManager)
+	if !ok {
 		t.Fatal(err)
 	}
 
@@ -40,21 +29,6 @@ func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain,
 		t.Fatalf("Num virtual hosts: %d expected %d", len(virtualHosts), expected)
 	}
 
-}
-
-func assertTlsCertificate(t *testing.T, filterChain listener.FilterChain, expectedCert, expectedKey string) {
-	certificate := filterChain.HiddenEnvoyDeprecatedTlsContext.CommonTlsContext.TlsCertificates[0]
-
-	certFile := certificate.CertificateChain.Specifier.(*core.DataSource_InlineString)
-	keyFile := certificate.PrivateKey.Specifier.(*core.DataSource_InlineString)
-
-	if certFile.InlineString != expectedCert {
-		t.Fatalf("certficiate chain filename: '%s' expected '%s'", certFile.InlineString, expectedCert)
-	}
-
-	if keyFile.InlineString != expectedKey {
-		t.Fatalf("private key filename: '%s' expected '%s'", keyFile.InlineString, expectedKey)
-	}
 }
 
 func assertServerNames(t *testing.T, filterChain *listener.FilterChain, expectedServerNames []string) {
@@ -80,7 +54,7 @@ func TestGenerate(t *testing.T) {
 		{Hosts: []string{"*"}, Cert: "b", Key: "c"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
+	snapshot, _ := configurator.Generate(ingresses, []*v1.Secret{})
 
 	if len(snapshot.Resources[tcache.Listener].Items) != 1 {
 		t.Fatalf("Num listeners: %d", len(snapshot.Resources[tcache.Listener].Items))
@@ -101,7 +75,11 @@ func TestGenerateMultipleCerts(t *testing.T) {
 		{Hosts: []string{"*.internal.api.co.uk"}, Cert: "couk", Key: "couk"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
+	snapshot, err := configurator.Generate(ingresses, []*v1.Secret{})
+	if err != nil {
+		t.Fatalf("Error generating snapshot %v", err)
+	}
+
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 2 {
@@ -122,7 +100,11 @@ func TestGenerateMultipleHosts(t *testing.T) {
 		{Hosts: []string{"*.internal.api.com", "*.internal.api.co.uk"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
+	snapshot, err := configurator.Generate(ingresses, []*v1.Secret{})
+	if err != nil {
+		t.Fatalf("Error generating snapshot %v", err)
+	}
+
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 1 {
@@ -143,7 +125,11 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
+	snapshot, err := configurator.Generate(ingresses, []*v1.Secret{})
+	if err != nil {
+		t.Fatalf("Error generating snapshot %v", err)
+	}
+
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 1 {
@@ -161,7 +147,11 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 		{Hosts: []string{"*"}, Cert: "all", Key: "all"},
 	}, "d", []string{"bar"})
 
-	snapshot := configurator.Generate(ingresses, []*v1.Secret{})
+	snapshot, err := configurator.Generate(ingresses, []*v1.Secret{})
+	if err != nil {
+		t.Fatalf("Error generating snapshot %v", err)
+	}
+
 	listener := snapshot.Resources[tcache.Listener].Items["listener_0"].Resource.(*listener.Listener)
 
 	if len(listener.FilterChains) != 2 {
@@ -229,7 +219,10 @@ func TestGenerateListeners(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			configurator := NewKubernetesConfigurator("a", tc.certs, "", nil)
-			ret := configurator.generateListeners(&envoyConfiguration{VirtualHosts: tc.virtualHost})
+			ret, err := configurator.generateListeners(&envoyConfiguration{VirtualHosts: tc.virtualHost})
+			if err != nil {
+				t.Fatalf("Error generating listeners %v", err)
+			}
 			listener := ret[0].(*listener.Listener)
 			if len(listener.FilterChains) != 1 {
 				t.Fatalf("filterchain number missmatch")
