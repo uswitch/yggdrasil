@@ -8,6 +8,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcache "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/uswitch/yggdrasil/pkg/k8s"
+	v1 "k8s.io/api/core/v1"
 )
 
 func assertNumberOfVirtualHosts(t *testing.T, filterChain *listener.FilterChain, expected int) {
@@ -53,7 +54,7 @@ func TestGenerate(t *testing.T) {
 		{Hosts: []string{"*"}, Cert: "b", Key: "c"},
 	}, "d", []string{"bar"})
 
-	snapshot, _ := configurator.Generate(ingresses)
+	snapshot, _ := configurator.Generate(ingresses, []*v1.Secret{})
 
 	if len(snapshot.Resources[tcache.Listener].Items) != 1 {
 		t.Fatalf("Num listeners: %d", len(snapshot.Resources[tcache.Listener].Items))
@@ -74,7 +75,7 @@ func TestGenerateMultipleCerts(t *testing.T) {
 		{Hosts: []string{"*.internal.api.co.uk"}, Cert: "couk", Key: "couk"},
 	}, "d", []string{"bar"})
 
-	snapshot, err := configurator.Generate(ingresses)
+	snapshot, err := configurator.Generate(ingresses, []*v1.Secret{})
 	if err != nil {
 		t.Fatalf("Error generating snapshot %v", err)
 	}
@@ -99,7 +100,7 @@ func TestGenerateMultipleHosts(t *testing.T) {
 		{Hosts: []string{"*.internal.api.com", "*.internal.api.co.uk"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
-	snapshot, err := configurator.Generate(ingresses)
+	snapshot, err := configurator.Generate(ingresses, []*v1.Secret{})
 	if err != nil {
 		t.Fatalf("Error generating snapshot %v", err)
 	}
@@ -124,7 +125,7 @@ func TestGenerateNoMatchingCert(t *testing.T) {
 		{Hosts: []string{"*.internal.api.com"}, Cert: "com", Key: "com"},
 	}, "d", []string{"bar"})
 
-	snapshot, err := configurator.Generate(ingresses)
+	snapshot, err := configurator.Generate(ingresses, []*v1.Secret{})
 	if err != nil {
 		t.Fatalf("Error generating snapshot %v", err)
 	}
@@ -146,7 +147,7 @@ func TestGenerateIntoTwoCerts(t *testing.T) {
 		{Hosts: []string{"*"}, Cert: "all", Key: "all"},
 	}, "d", []string{"bar"})
 
-	snapshot, err := configurator.Generate(ingresses)
+	snapshot, err := configurator.Generate(ingresses, []*v1.Secret{})
 	if err != nil {
 		t.Fatalf("Error generating snapshot %v", err)
 	}

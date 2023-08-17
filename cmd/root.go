@@ -34,6 +34,7 @@ type config struct {
 	IngressClass               string                    `json:"ingressClass"`
 	NodeName                   string                    `json:"nodeName"`
 	Clusters                   []clusterConfig           `json:"clusters"`
+	SyncSecrets                bool                      `json:"syncSecrets"`
 	Certificates               []envoy.Certificate       `json:"certificates"`
 	TrustCA                    string                    `json:"trustCA"`
 	UpstreamPort               uint32                    `json:"upstreamPort"`
@@ -168,6 +169,10 @@ func main(*cobra.Command, []string) error {
 		log.SetLevel(log.DebugLevel)
 	}
 
+	if c.SyncSecrets && len(c.Certificates) > 1 {
+		return fmt.Errorf("only one certificate can be declared when syncSecrets is true")
+	}
+
 	clusterSources, err := createSources(c.Clusters)
 	if err != nil {
 		return fmt.Errorf("error creating sources: %s", err)
@@ -218,7 +223,7 @@ func main(*cobra.Command, []string) error {
 		c.Certificates[idx].Cert = string(certBytes)
 		c.Certificates[idx].Key = string(keyBytes)
 	}
-	aggregator := k8s.NewAggregator(sources, ctx)
+	aggregator := k8s.NewAggregator(sources, ctx, c.SyncSecrets)
 	configurator := envoy.NewKubernetesConfigurator(
 		viper.GetString("nodeName"),
 		c.Certificates,
@@ -233,6 +238,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithUseRemoteAddress(c.UseRemoteAddress),
 		envoy.WithHttpExtAuthzCluster(c.HttpExtAuthz),
 		envoy.WithHttpGrpcLogger(c.HttpGrpcLogger),
+		envoy.WithSyncSecrets(c.SyncSecrets),
 		envoy.WithDefaultRetryOn(viper.GetString("retryOn")),
 		envoy.WithAccessLog(c.AccessLogger),
 	)

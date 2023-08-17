@@ -1,12 +1,18 @@
 package envoy
 
 import (
+	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/uswitch/yggdrasil/pkg/k8s"
+	v1 "k8s.io/api/core/v1"
 )
 
 func sortCluster(clusters []*cluster) {
@@ -65,6 +71,8 @@ type virtualHost struct {
 	UpstreamCluster string
 	Timeout         time.Duration
 	PerTryTimeout   time.Duration
+	TlsKey          string
+	TlsCert         string
 	RetryOn         string
 }
 
@@ -77,6 +85,8 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 		v.Timeout == other.Timeout &&
 		v.UpstreamCluster == other.UpstreamCluster &&
 		v.PerTryTimeout == other.PerTryTimeout &&
+		v.TlsKey == other.TlsKey &&
+		v.TlsCert == other.TlsCert &&
 		v.RetryOn == other.RetryOn
 }
 
@@ -208,6 +218,75 @@ func (ing *envoyIngress) addTimeout(timeout time.Duration) {
 	ing.vhost.PerTryTimeout = timeout
 }
 
+// hostMatch returns true if tlsHost and ruleHost match, with wildcard support
+//
+// *.a.b ruleHost accepts tlsHost *.a.b but not a.a.b or a.b or a.a.a.b
+// a.a.b ruleHost accepts tlsHost a.a.b and *.a.b but not *.a.a.b
+func hostMatch(ruleHost, tlsHost string) bool {
+	// TODO maybe cache the results for speedup
+	pattern := strings.ReplaceAll(strings.ReplaceAll(tlsHost, ".", "\\."), "*", "(?:\\*|[a-z0-9][a-z0-9-_]*)")
+	matched, err := regexp.MatchString("^"+pattern+"$", ruleHost)
+	if err != nil {
+		logrus.Errorf("error in ingress hostname comparison: %s", err.Error())
+		return false
+	}
+	return matched
+}
+
+// getHostTlsSecret returns the tls secret configured for a given ingress host
+func getHostTlsSecret(ingress *k8s.Ingress, host string, secrets []*v1.Secret) (*v1.Secret, error) {
+	for _, tls := range ingress.TLS {
+		// TODO prefer a.a.b tls secret over *.a.b for host a.a.b when both are configured
+		if hostMatch(host, tls.Host) {
+			for _, secret := range secrets {
+				if secret.Namespace == ingress.Namespace &&
+					secret.Name == tls.SecretName {
+					return secret, nil
+				}
+			}
+			return nil, fmt.Errorf("secret %s/%s not found for host '%s'", ingress.Namespace, tls.SecretName, host)
+		}
+	}
+	return nil, fmt.Errorf("ingress %s/%s - %s has no tls secret configured", ingress.Namespace, ingress.Name, host)
+}
+
+// validateTlsSecret checks that the given secret holds valid tls certificate and key
+func validateTlsSecret(secret *v1.Secret) (bool, error) {
+	tlsCert, certOk := secret.Data["tls.crt"]
+	tlsKey, keyOk := secret.Data["tls.key"]
+
+	if !certOk || !keyOk {
+		logrus.Infof("skipping certificate %s/%s: missing 'tls.crt' or 'tls.key'", secret.Namespace, secret.Name)
+		return false, nil
+	}
+	if len(tlsCert) == 0 || len(tlsKey) == 0 {
+		logrus.Infof("skipping certificate %s/%s: empty 'tls.crt' or 'tls.key'", secret.Namespace, secret.Name)
+		return false, nil
+	}
+
+	// discard P-384 EC private keys
+	// see https://github.com/envoyproxy/envoy/issues/10855
+	block, _ := pem.Decode(tlsCert)
+	if block == nil {
+		return false, fmt.Errorf("error parsing x509 certificate - no PEM block found")
+	}
+	x509crt, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return false, fmt.Errorf("error parsing x509 certificate: %s", err.Error())
+	}
+	if x509crt.PublicKeyAlgorithm == x509.ECDSA {
+		ecdsaPub, ok := x509crt.PublicKey.(*ecdsa.PublicKey)
+		if !ok {
+			return false, fmt.Errorf("error in *ecdsa.PublicKey type assertion")
+		}
+		if ecdsaPub.Curve.Params().BitSize > 256 {
+			logrus.Infof("skipping ECDSA %s certificate %s/%s: only P-256 certificates are supported", ecdsaPub.Curve.Params().Name, secret.Namespace, secret.Name)
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (envoyIng *envoyIngress) addRetryOn(ingress *k8s.Ingress) {
 	if ingress.Annotations["yggdrasil.uswitch.com/retry-on"] != "" {
 		retryOn := ingress.Annotations["yggdrasil.uswitch.com/retry-on"]
@@ -219,7 +298,7 @@ func (envoyIng *envoyIngress) addRetryOn(ingress *k8s.Ingress) {
 	}
 }
 
-func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
+func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
 
@@ -232,7 +311,6 @@ func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
 				}
 
 				envoyIngress := envoyIngresses[ruleHost]
-
 				envoyIngress.addUpstream(j)
 
 				if i.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {
@@ -245,7 +323,22 @@ func translateIngresses(ingresses []*k8s.Ingress) *envoyConfiguration {
 						envoyIngress.addTimeout(timeout)
 					}
 				}
+
 				envoyIngress.addRetryOn(i)
+
+				if syncSecrets && envoyIngress.vhost.TlsKey == "" && envoyIngress.vhost.TlsCert == "" {
+					if hostTlsSecret, err := getHostTlsSecret(i, ruleHost, secrets); err != nil {
+						logrus.Infof(err.Error())
+					} else {
+						valid, err := validateTlsSecret(hostTlsSecret)
+						if err != nil {
+							logrus.Warnf("secret %s/%s is not valid: %s", hostTlsSecret.Namespace, hostTlsSecret.Name, err.Error())
+						} else if valid {
+							envoyIngress.vhost.TlsKey = string(hostTlsSecret.Data["tls.key"])
+							envoyIngress.vhost.TlsCert = string(hostTlsSecret.Data["tls.crt"])
+						}
+					}
+				}
 			}
 		}
 	}

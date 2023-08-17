@@ -116,12 +116,21 @@ spec:
           servicePort: 80
 ```
 
+## Dynamic TLS certificates synchronization from Kubernetes secrets
+
+Downstream TLS certificates can be dynamically fetched and updated from Kubernetes secrets configured under ingresses' `spec.tls` by setting `syncSecrets` true in Yggdrasil configuration (false by default).
+
+In this mode, only a single `certificate` may be specified in Yggdrasil configuration. It will be used for hosts with misconfigured or invalid secret.
+
+**Note**: ECDSA >256 keys are not supported by envoy and will be discarded. See https://github.com/envoyproxy/envoy/issues/10855
+
 ## Configuration
 Yggdrasil can be configured using a config file e.g:
 ```json
 {
   "nodeName": "foo",
   "ingressClasses": ["multi-cluster", "multi-cluster-staging"],
+  "syncSecrets": false,
   "certificates": [
     {
       "hosts": ["*.api.com"],

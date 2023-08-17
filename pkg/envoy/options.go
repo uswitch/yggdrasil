@@ -65,6 +65,13 @@ func WithHttpGrpcLogger(httpGrpcLogger HttpGrpcLogger) option {
 	}
 }
 
+// WithSyncSecrets configures the syncSecrets option
+func WithSyncSecrets(syncSecrets bool) option {
+	return func(c *KubernetesConfigurator) {
+		c.syncSecrets = syncSecrets
+	}
+}
+
 // WithDefaultRetryOn configures the default retry policy
 func WithDefaultRetryOn(defaultRetryOn string) option {
 	return func(c *KubernetesConfigurator) {

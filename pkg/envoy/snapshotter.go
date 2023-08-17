@@ -6,13 +6,14 @@ import (
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/uswitch/yggdrasil/pkg/k8s"
 )
 
 // Configurator is an interface that implements Generate and NodeID
 type Configurator interface {
-	Generate([]*k8s.Ingress) (cache.Snapshot, error)
+	Generate([]*k8s.Ingress, []*v1.Secret) (cache.Snapshot, error)
 	NodeID() string
 }
 
@@ -34,8 +35,12 @@ func (s *Snapshotter) snapshot() error {
 	if err != nil {
 		return err
 	}
+	secrets, err := s.aggregator.GetSecrets()
+	if err != nil {
+		return err
+	}
 
-	snapshot, err := s.configurator.Generate(genericIngresses)
+	snapshot, err := s.configurator.Generate(genericIngresses, secrets)
 
 	log.Debugf("took snapshot: %+v", snapshot)
 
@@ -59,13 +64,15 @@ func (s *Snapshotter) Run(a *k8s.Aggregator) {
 			if hadChanges {
 				err := s.snapshot()
 				if err != nil {
-					logrus.Warnf("caught error in snapshot: %s", err)
+					logrus.Errorf("caught error in snapshot: %s", err)
 					continue
 				}
 				hadChanges = false
 				continue
 			}
 		case k8s.INGRESS:
+			change = true
+		case k8s.SECRET:
 			change = true
 		}
 		hadChanges = hadChanges || change

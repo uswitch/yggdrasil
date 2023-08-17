@@ -13,4 +13,5 @@ type SyncDataEvent struct {
 const (
 	COMMAND SyncType = "COMMAND"
 	INGRESS SyncType = "INGRESS"
+	SECRET  SyncType = "SECRET"
 )
