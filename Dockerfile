@@ -1,5 +1,5 @@
 FROM scratch
 
-ADD bin/yggdrasil-linux-amd64 yggdrasil
+COPY --chmod=755 bin/yggdrasil-linux-amd64 yggdrasil
 
 ENTRYPOINT ["/yggdrasil"]
