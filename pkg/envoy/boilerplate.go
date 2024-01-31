@@ -272,7 +272,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 		return &hcm.HttpConnectionManager{}, err
 	}
 
-	tracingProviderConfig := &hcm.HttpConnectionManager_Tracing{}
+	tracingConfig := &hcm.HttpConnectionManager_Tracing{}
 
 	if c.tracingProvider == "zipkin" {
 		zipkinTracingProvider, err := anypb.New(makeZipkinTracingProvider())
@@ -280,7 +280,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 			log.Fatal(err)
 		}
 
-		tracingProviderConfig = &hcm.HttpConnectionManager_Tracing{
+		tracingConfig = &hcm.HttpConnectionManager_Tracing{
 			Provider: &tracing.Tracing_Http{
 				Name:       "config.trace.v3.Tracing.Http",
 				ConfigType: &tracing.Tracing_Http_TypedConfig{TypedConfig: zipkinTracingProvider},
@@ -303,7 +303,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 				VirtualHosts: virtualHosts,
 			},
 		},
-		Tracing:          tracingProviderConfig,
+		Tracing:          tracingConfig,
 		AccessLog:        accessLoggers,
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: c.useRemoteAddress},
 	}, nil
