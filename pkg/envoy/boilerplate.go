@@ -216,7 +216,7 @@ func makeZipkinTracingProvider() *tracing.ZipkinConfig {
 	return zipkinTracingProviderConfig
 }
 
-func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
+func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost, tracingProvider string) (*hcm.HttpConnectionManager, error) {
 	// Access Logs
 	accessLogConfig := makeFileAccessLog(c.accessLogger)
 	anyAccessLogConfig, err := anypb.New(accessLogConfig)
@@ -272,7 +272,21 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 		return &hcm.HttpConnectionManager{}, err
 	}
 
-	zipkinTracingProvider, err := anypb.New(makeZipkinTracingProvider())
+	tracingProviderConfig := &hcm.HttpConnectionManager_Tracing{}
+
+	if tracingProvider == "zipkin" {
+		zipkinTracingProvider, err := anypb.New(makeZipkinTracingProvider())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		tracingProviderConfig = &hcm.HttpConnectionManager_Tracing{
+			Provider: &tracing.Tracing_Http{
+				Name:       "config.trace.v3.Tracing.Http",
+				ConfigType: &tracing.Tracing_Http_TypedConfig{TypedConfig: zipkinTracingProvider},
+			},
+		}
+	}
 
 	return &hcm.HttpConnectionManager{
 		CodecType:   hcm.HttpConnectionManager_AUTO,
@@ -289,19 +303,14 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 				VirtualHosts: virtualHosts,
 			},
 		},
-		Tracing: &hcm.HttpConnectionManager_Tracing{
-			Provider: &tracing.Tracing_Http{
-				Name:       "config.trace.v3.Tracing.Http",
-				ConfigType: &tracing.Tracing_Http_TypedConfig{TypedConfig: zipkinTracingProvider},
-			},
-		},
+		Tracing:          tracingProviderConfig,
 		AccessLog:        accessLoggers,
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: c.useRemoteAddress},
 	}, nil
 }
 
 func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
-	httpConnectionManager, err := c.makeConnectionManager(virtualHosts)
+	httpConnectionManager, err := c.makeConnectionManager(virtualHosts, c.tracingProvider)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to get httpConnectionManager: %s", err)
 	}
