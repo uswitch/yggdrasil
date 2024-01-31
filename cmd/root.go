@@ -243,6 +243,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithSyncSecrets(c.SyncSecrets),
 		envoy.WithDefaultRetryOn(viper.GetString("retryOn")),
 		envoy.WithAccessLog(c.AccessLogger),
+		envoy.WithTracingProvider(viper.GetString("tracingProvider")),
 	)
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 

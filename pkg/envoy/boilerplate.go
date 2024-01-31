@@ -216,7 +216,7 @@ func makeZipkinTracingProvider() *tracing.ZipkinConfig {
 	return zipkinTracingProviderConfig
 }
 
-func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost, tracingProvider string) (*hcm.HttpConnectionManager, error) {
+func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
 	// Access Logs
 	accessLogConfig := makeFileAccessLog(c.accessLogger)
 	anyAccessLogConfig, err := anypb.New(accessLogConfig)
@@ -274,7 +274,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 
 	tracingProviderConfig := &hcm.HttpConnectionManager_Tracing{}
 
-	if tracingProvider == "zipkin" {
+	if c.tracingProvider == "zipkin" {
 		zipkinTracingProvider, err := anypb.New(makeZipkinTracingProvider())
 		if err != nil {
 			log.Fatal(err)
@@ -310,7 +310,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 }
 
 func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
-	httpConnectionManager, err := c.makeConnectionManager(virtualHosts, c.tracingProvider)
+	httpConnectionManager, err := c.makeConnectionManager(virtualHosts)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to get httpConnectionManager: %s", err)
 	}

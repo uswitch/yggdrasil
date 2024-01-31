@@ -85,3 +85,10 @@ func WithAccessLog(accessLogger AccessLogger) option {
 		c.accessLogger = accessLogger
 	}
 }
+
+// WithTracingProvider configures the tracing provider for HTTP connection manager
+func WithTracingProvider(tracingProvider string) option {
+	return func(c *KubernetesConfigurator) {
+		c.tracingProvider = tracingProvider
+	}
+}

@@ -237,7 +237,7 @@ func (c *KubernetesConfigurator) generateHTTPFilterChain(config *envoyConfigurat
 		virtualHosts = append(virtualHosts, vhost)
 	}
 
-	httpConnectionManager, err := c.makeConnectionManager(virtualHosts, c.tracingProvider)
+	httpConnectionManager, err := c.makeConnectionManager(virtualHosts)
 	if err != nil {
 		return nil, err
 	}
