@@ -26,6 +26,7 @@ jobs:
         name: bin
         path: bin/
   docker-build-push:
+    if: github.ref_name == 'master' || startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     steps:
