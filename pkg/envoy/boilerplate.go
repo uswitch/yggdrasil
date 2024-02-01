@@ -277,14 +277,12 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	if c.tracingProvider == "zipkin" {
 		zipkinTracingProvider, err := anypb.New(makeZipkinTracingProvider())
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("failed to set zipkin tracing provider config: %s", err)
 		}
 
-		tracingConfig = &hcm.HttpConnectionManager_Tracing{
-			Provider: &tracing.Tracing_Http{
-				Name:       "config.trace.v3.Tracing.Http",
-				ConfigType: &tracing.Tracing_Http_TypedConfig{TypedConfig: zipkinTracingProvider},
-			},
+		tracingConfig.Provider = &tracing.Tracing_Http{
+			Name:       "config.trace.v3.Tracing.Http",
+			ConfigType: &tracing.Tracing_Http_TypedConfig{TypedConfig: zipkinTracingProvider},
 		}
 	}
 
