@@ -202,6 +202,7 @@ The Yggdrasil-specific metrics which are available from the API are:
 --max-ejection-percentage int32               maximal percentage of hosts ejected via outlier detection. Set to >=0 to activate outlier detection in envoy. (default -1)
 --node-name string                            envoy node name
 --retry-on string                             default comma-separated list of retry policies (default "5xx")
+--tracing-provider                            name of HTTP Connection Manager tracing provider to include - currently only zipkin config is supported
 --upstream-healthcheck-healthy uint32         number of successful healthchecks before the backend is considered healthy (default 3)
 --upstream-healthcheck-interval duration      duration of the upstream health check interval (default 10s)
 --upstream-healthcheck-timeout duration       timeout of the upstream healthchecks (default 5s)
