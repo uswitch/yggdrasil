@@ -11,6 +11,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	tracing "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	eal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	gal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	eauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
@@ -205,6 +206,16 @@ func makeFileAccessLog(cfg AccessLogger) *eal.FileAccessLog {
 	return accessLogConfig
 }
 
+func makeZipkinTracingProvider() *tracing.ZipkinConfig {
+	zipkinTracingProviderConfig := &tracing.ZipkinConfig{
+		CollectorCluster:         "zipkin",
+		CollectorEndpoint:        "/api/v2/spans",
+		CollectorEndpointVersion: tracing.ZipkinConfig_HTTP_JSON,
+	}
+
+	return zipkinTracingProviderConfig
+}
+
 func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
 	// Access Logs
 	accessLogConfig := makeFileAccessLog(c.accessLogger)
@@ -261,6 +272,20 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 		return &hcm.HttpConnectionManager{}, err
 	}
 
+	tracingConfig := &hcm.HttpConnectionManager_Tracing{}
+
+	if c.tracingProvider == "zipkin" {
+		zipkinTracingProvider, err := anypb.New(makeZipkinTracingProvider())
+		if err != nil {
+			log.Fatalf("failed to set zipkin tracing provider config: %s", err)
+		}
+
+		tracingConfig.Provider = &tracing.Tracing_Http{
+			Name:       "config.trace.v3.Tracing.Http",
+			ConfigType: &tracing.Tracing_Http_TypedConfig{TypedConfig: zipkinTracingProvider},
+		}
+	}
+
 	return &hcm.HttpConnectionManager{
 		CodecType:   hcm.HttpConnectionManager_AUTO,
 		StatPrefix:  "ingress_http",
@@ -276,7 +301,7 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 				VirtualHosts: virtualHosts,
 			},
 		},
-		Tracing:          &hcm.HttpConnectionManager_Tracing{},
+		Tracing:          tracingConfig,
 		AccessLog:        accessLoggers,
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: c.useRemoteAddress},
 	}, nil

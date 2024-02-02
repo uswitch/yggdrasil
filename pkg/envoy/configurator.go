@@ -69,6 +69,7 @@ type KubernetesConfigurator struct {
 	httpGrpcLogger             HttpGrpcLogger
 	accessLogger               AccessLogger
 	defaultRetryOn             string
+	tracingProvider            string
 
 	previousConfig  *envoyConfiguration
 	listenerVersion string
@@ -85,7 +86,7 @@ func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca str
 	return c
 }
 
-//Generate creates a new snapshot
+// Generate creates a new snapshot
 func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress, secrets []*v1.Secret) (cache.Snapshot, error) {
 	c.Lock()
 	defer c.Unlock()
