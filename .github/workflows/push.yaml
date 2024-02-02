@@ -46,7 +46,7 @@ jobs:
       with:
         images: quay.io/uswitch/yggdrasil
         tags: |
-          type=semver,pattern={{version}}
+          type=semver,pattern={{raw}}
           type=sha,prefix=,format=long,
     - uses: docker/build-push-action@v5
       with:
