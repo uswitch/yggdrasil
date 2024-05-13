@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
@@ -222,12 +221,12 @@ func main(*cobra.Command, []string) error {
 		certPath := certificate.Cert
 		keyPath := certificate.Key
 
-		certBytes, err := ioutil.ReadFile(certPath)
+		certBytes, err := os.ReadFile(certPath)
 		if err != nil {
 			log.Fatalf("Failed to read %s: %v", certPath, err)
 		}
 
-		keyBytes, err := ioutil.ReadFile(keyPath)
+		keyBytes, err := os.ReadFile(keyPath)
 		if err != nil {
 			log.Fatalf("Failed to read %s: %v", keyPath, err)
 		}
@@ -296,7 +295,7 @@ func createSources(clusters []clusterConfig) ([]*kubernetes.Clientset, error) {
 		var token string
 
 		if cluster.TokenPath != "" {
-			bytes, err := ioutil.ReadFile(cluster.TokenPath)
+			bytes, err := os.ReadFile(cluster.TokenPath)
 			if err != nil {
 				return sources, err
 			}
