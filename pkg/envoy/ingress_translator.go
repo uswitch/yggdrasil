@@ -100,6 +100,7 @@ type cluster struct {
 	Name            string
 	VirtualHost     string
 	HealthCheckPath string
+	HealthCheckHost string // with Wildcard, the HealthCheck host can be different than the VirtualHost
 	Timeout         time.Duration
 	Hosts           []LBHost
 }
@@ -122,6 +123,10 @@ func (c *cluster) Equals(other *cluster) bool {
 	}
 
 	if c.VirtualHost != other.VirtualHost {
+		return false
+	}
+
+	if c.HealthCheckHost != other.HealthCheckHost {
 		return false
 	}
 
@@ -210,16 +215,34 @@ func newEnvoyIngress(host string, timeouts DefaultTimeouts) *envoyIngress {
 			Hosts:           []LBHost{},
 			Timeout:         timeouts.Cluster,
 			HealthCheckPath: "",
+			HealthCheckHost: host,
 		},
 	}
 }
 
 func (ing *envoyIngress) addUpstream(host string, weight uint32) {
-	ing.cluster.Hosts = append(ing.cluster.Hosts, LBHost{host, weight})
+	// Check if the host is already in the list
+	// If we wan't to avoid using a for loop, maybe we could implement a Map for a faster lookup.
+	// time complexity O(1) vs 0(n) for each iteration.
+	for _, h := range ing.cluster.Hosts {
+		if h.Host == host {
+			// Host found, so we don't add the duplicate
+			logrus.Debugf("Duplicate host found for upstream, not adding : %s for cluster : %s", host, ing.cluster.Name)
+			return
+		}
+	}
+
+	// No duplicate found, append the new host
+	ing.cluster.Hosts = append(ing.cluster.Hosts, LBHost{Host: host, Weight: weight})
+	logrus.Debugf("Host added on upstream list : %s for cluster : %s", host, ing.cluster.Name)
 }
 
 func (ing *envoyIngress) addHealthCheckPath(path string) {
 	ing.cluster.HealthCheckPath = path
+}
+
+func (ing *envoyIngress) addHealthCheckHost(host string) {
+	ing.cluster.HealthCheckHost = host
 }
 
 func (ing *envoyIngress) addTimeout(timeout time.Duration) {
@@ -320,6 +343,12 @@ func (envoyIng *envoyIngress) addRetryOn(ingress *k8s.Ingress) {
 	}
 }
 
+// isWildcard checks if the given host rule is a wildcard.
+func isWildcard(ruleHost string) bool {
+	// Check if the ruleHost starts with '*.'
+	return strings.HasPrefix(ruleHost, "*.")
+}
+
 func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret, timeouts DefaultTimeouts) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
@@ -327,6 +356,9 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 	for _, i := range ingresses {
 		for _, j := range i.Upstreams {
 			for _, ruleHost := range i.RulesHosts {
+
+				isWildcard := isWildcard(ruleHost)
+
 				_, ok := envoyIngresses[ruleHost]
 				if !ok {
 					envoyIngresses[ruleHost] = newEnvoyIngress(ruleHost, timeouts)
@@ -340,6 +372,14 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 					}
 				} else {
 					envoyIngress.addUpstream(j, 1)
+				}
+
+				if isWildcard {
+					if i.Annotations["yggdrasil.uswitch.com/healthcheck-host"] != "" {
+						envoyIngress.addHealthCheckHost(i.Annotations["yggdrasil.uswitch.com/healthcheck-host"])
+					} else {
+						logrus.Warnf("Be careful, healthcheck can't work for wildcard host : %s", envoyIngress.cluster.HealthCheckHost)
+					}
 				}
 
 				if i.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {

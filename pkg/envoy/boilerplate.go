@@ -494,7 +494,7 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 		}
 	}
 
-	healthChecks := makeHealthChecks(c.VirtualHost, c.HealthCheckPath, healthCfg)
+	healthChecks := makeHealthChecks(c.HealthCheckHost, c.HealthCheckPath, healthCfg)
 
 	endpoints := make([]*endpoint.LbEndpoint, len(addresses))
 
