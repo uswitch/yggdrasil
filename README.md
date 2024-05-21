@@ -75,6 +75,7 @@ Yggdrasil allows for some customisation of the route and cluster config per Ingr
 | Name                                                         | type     |
 |--------------------------------------------------------------|----------|
 | [yggdrasil.uswitch.com/healthcheck-path](#health-check-path) | string   |
+| [yggdrasil.uswitch.com/healthcheck-host](#health-check-host) | string   |
 | [yggdrasil.uswitch.com/timeout](#timeouts)                   | duration |
 | [yggdrasil.uswitch.com/cluster-timeout](#timeouts)           | duration |
 | [yggdrasil.uswitch.com/route-timeout](#timeouts)             | duration |
@@ -84,6 +85,9 @@ Yggdrasil allows for some customisation of the route and cluster config per Ingr
 
 ### Health Check Path
 Specifies a path to configure a [HTTP health check](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/core/v3/health_check.proto#config-core-v3-healthcheck-httphealthcheck) to. Envoy will not route to clusters that fail health checks.
+
+### Health Check Host
+Permit to change the host of the healthcheck when using wildcard. Example: healthcheck for `*.my-app.example.com` can't work natively, you can configure a specific path with `yggdrasil.uswitch.com/healthcheck-host: health.my-app.example.com`.
 
 * [config.core.v3.HealthCheck.HttpHealthCheck.Path](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/core/v3/health_check.proto#envoy-v3-api-field-config-core-v3-healthcheck-httphealthcheck-path)
 
