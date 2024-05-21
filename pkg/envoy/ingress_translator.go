@@ -349,6 +349,13 @@ func isWildcard(ruleHost string) bool {
 	return strings.HasPrefix(ruleHost, "*.")
 }
 
+func validateSubdomain(ruleHost, host string) bool {
+	if strings.HasPrefix(ruleHost, "*.") {
+		ruleHost = ruleHost[2:]
+	}
+	return strings.HasSuffix(host, ruleHost)
+}
+
 func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret, timeouts DefaultTimeouts) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
@@ -377,6 +384,10 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 				if isWildcard {
 					if i.Annotations["yggdrasil.uswitch.com/healthcheck-host"] != "" {
 						envoyIngress.addHealthCheckHost(i.Annotations["yggdrasil.uswitch.com/healthcheck-host"])
+						if !validateSubdomain(ruleHost, envoyIngress.cluster.HealthCheckHost) {
+							logrus.Warnf("Healthcheck %s is not on the same subdomain for %s, annotation will be skipped", envoyIngress.cluster.HealthCheckHost, ruleHost)
+							envoyIngress.cluster.HealthCheckHost = ruleHost
+						}
 					} else {
 						logrus.Warnf("Be careful, healthcheck can't work for wildcard host : %s", envoyIngress.cluster.HealthCheckHost)
 					}
