@@ -65,6 +65,7 @@ func VirtualHostsEquals(a, b []*virtualHost) bool {
 type envoyConfiguration struct {
 	VirtualHosts []*virtualHost
 	Clusters     []*cluster
+	AccessLog    string
 }
 
 type virtualHost struct {
@@ -373,7 +374,7 @@ func validateSubdomain(ruleHost, host string) bool {
 	return strings.HasSuffix(host, ruleHost)
 }
 
-func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret, timeouts DefaultTimeouts) *envoyConfiguration {
+func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret, timeouts DefaultTimeouts, accessLog string) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
 
@@ -471,6 +472,7 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 	for _, ingress := range envoyIngresses {
 		cfg.Clusters = append(cfg.Clusters, ingress.cluster)
 		cfg.VirtualHosts = append(cfg.VirtualHosts, ingress.vhost)
+		cfg.AccessLog = accessLog
 	}
 
 	numVhosts.Set(float64(len(cfg.VirtualHosts)))

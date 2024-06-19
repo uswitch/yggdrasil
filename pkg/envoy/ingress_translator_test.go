@@ -209,8 +209,8 @@ func TestEquals(t *testing.T) {
 		Route:   15 * time.Second,
 		PerTry:  5 * time.Second,
 	}
-	c := translateIngresses([]*k8s.Ingress{ingress, ingress2}, false, []*v1.Secret{}, timeouts)
-	c2 := translateIngresses([]*k8s.Ingress{ingress, ingress2}, false, []*v1.Secret{}, timeouts)
+	c := translateIngresses([]*k8s.Ingress{ingress, ingress2}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+	c2 := translateIngresses([]*k8s.Ingress{ingress, ingress2}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
 
 	vmatch, cmatch := c.equals(c2)
 	if vmatch != true {
@@ -231,8 +231,8 @@ func TestNotEquals(t *testing.T) {
 		Route:   15 * time.Second,
 		PerTry:  5 * time.Second,
 	}
-	c := translateIngresses([]*k8s.Ingress{ingress, ingress3, ingress2}, false, []*v1.Secret{}, timeouts)
-	c2 := translateIngresses([]*k8s.Ingress{ingress, ingress2, ingress4}, false, []*v1.Secret{}, timeouts)
+	c := translateIngresses([]*k8s.Ingress{ingress, ingress3, ingress2}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+	c2 := translateIngresses([]*k8s.Ingress{ingress, ingress2, ingress4}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
 
 	vmatch, cmatch := c.equals(c2)
 	if vmatch == true {
@@ -252,8 +252,8 @@ func TestPartialEquals(t *testing.T) {
 		Route:   15 * time.Second,
 		PerTry:  5 * time.Second,
 	}
-	c := translateIngresses([]*k8s.Ingress{ingress2}, false, []*v1.Secret{}, timeouts)
-	c2 := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts)
+	c := translateIngresses([]*k8s.Ingress{ingress2}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+	c2 := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
 
 	vmatch, cmatch := c2.equals(c)
 	if vmatch != true {
@@ -272,7 +272,7 @@ func TestGeneratesForSingleIngress(t *testing.T) {
 		Route:   15 * time.Second,
 		PerTry:  5 * time.Second,
 	}
-	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts)
+	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
 
 	if len(c.VirtualHosts) != 1 {
 		t.Error("expected 1 virtual host")
@@ -313,7 +313,7 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 		Route:   15 * time.Second,
 		PerTry:  5 * time.Second,
 	}
-	c := translateIngresses([]*k8s.Ingress{fooIngress, barIngress}, false, []*v1.Secret{}, timeouts)
+	c := translateIngresses([]*k8s.Ingress{fooIngress, barIngress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
 
 	if len(c.VirtualHosts) != 1 {
 		t.Error("expected 1 virtual host")
@@ -373,7 +373,7 @@ func TestIngressWithIP(t *testing.T) {
 		Route:   15 * time.Second,
 		PerTry:  5 * time.Second,
 	}
-	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts)
+	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
 	if c.Clusters[0].Hosts[0].Host != "127.0.0.1" {
 		t.Errorf("expected cluster host to be IP address, was %s", c.Clusters[0].Hosts[0])
 	}

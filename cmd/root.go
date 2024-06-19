@@ -34,6 +34,7 @@ type config struct {
 	NodeName                   string                    `json:"nodeName"`
 	Clusters                   []clusterConfig           `json:"clusters"`
 	SyncSecrets                bool                      `json:"syncSecrets"`
+	AccessLog                  string                    `json:"accessLog"`
 	Certificates               []envoy.Certificate       `json:"certificates"`
 	TrustCA                    string                    `json:"trustCA"`
 	UpstreamPort               uint32                    `json:"upstreamPort"`
@@ -79,6 +80,7 @@ func init() {
 	rootCmd.PersistentFlags().String("address", "0.0.0.0:8080", "yggdrasil envoy control plane listen address")
 	rootCmd.PersistentFlags().String("health-address", "0.0.0.0:8081", "yggdrasil health API listen address")
 	rootCmd.PersistentFlags().String("node-name", "", "envoy node name")
+	rootCmd.PersistentFlags().String("access-log", "/var/log/envoy/", "envoy default access log file")
 	rootCmd.PersistentFlags().String("cert", "", "certfile")
 	rootCmd.PersistentFlags().String("key", "", "keyfile")
 	rootCmd.PersistentFlags().String("ca", "", "trustedCA")
@@ -119,6 +121,7 @@ func init() {
 	viper.BindPFlag("address", rootCmd.PersistentFlags().Lookup("address"))
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
+	viper.BindPFlag("accessLog", rootCmd.PersistentFlags().Lookup("access-log"))
 	viper.BindPFlag("ingressClasses", rootCmd.PersistentFlags().Lookup("ingress-classes"))
 	viper.BindPFlag("cert", rootCmd.PersistentFlags().Lookup("cert"))
 	viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
@@ -240,6 +243,7 @@ func main(*cobra.Command, []string) error {
 		c.Certificates,
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"),
+		viper.GetString("accessLog"),
 		envoy.WithUpstreamPort(uint32(viper.GetInt32("upstreamPort"))),
 		envoy.WithEnvoyListenerIpv4Address(viper.GetStringSlice("envoyListenerIpv4Address")),
 		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))),
@@ -256,6 +260,7 @@ func main(*cobra.Command, []string) error {
 		envoy.WithTracingProvider(viper.GetString("tracingProvider")),
 		envoy.WithAlpnProtocols(viper.GetStringSlice("alpnProtocols")),
 	)
+	configurator.ValidateAndFormatPath()
 	snapshotter := envoy.NewSnapshotter(envoyCache, configurator, aggregator)
 
 	go snapshotter.Run(aggregator)

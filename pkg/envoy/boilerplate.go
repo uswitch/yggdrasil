@@ -3,6 +3,7 @@ package envoy
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 
 	cal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -181,7 +182,7 @@ func makeGrpcLoggerConfig(cfg HttpGrpcLogger) *gal.HttpGrpcAccessLogConfig {
 	}
 }
 
-func makeFileAccessLog(cfg AccessLogger) *eal.FileAccessLog {
+func makeFileAccessLog(cfg AccessLogger, accessLog string) *eal.FileAccessLog {
 	format := DefaultAccessLogFormat
 	if len(cfg.Format) > 0 {
 		format = cfg.Format
@@ -194,7 +195,7 @@ func makeFileAccessLog(cfg AccessLogger) *eal.FileAccessLog {
 	jsonFormat = b.GetStructValue()
 
 	accessLogConfig := &eal.FileAccessLog{
-		Path: "/var/log/envoy/access.log",
+		Path: filepath.Join(accessLog, "access.log"),
 		AccessLogFormat: &eal.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
 				Format: &core.SubstitutionFormatString_JsonFormat{
@@ -217,9 +218,9 @@ func makeZipkinTracingProvider() *tracing.ZipkinConfig {
 	return zipkinTracingProviderConfig
 }
 
-func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost) (*hcm.HttpConnectionManager, error) {
+func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.VirtualHost, accessLog string) (*hcm.HttpConnectionManager, error) {
 	// Access Logs
-	accessLogConfig := makeFileAccessLog(c.accessLogger)
+	accessLogConfig := makeFileAccessLog(c.accessLogger, accessLog)
 	anyAccessLogConfig, err := anypb.New(accessLogConfig)
 	if err != nil {
 		log.Fatalf("failed to marshal access log config struct to typed struct: %s", err)
@@ -309,8 +310,8 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 	}, nil
 }
 
-func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost) (listener.FilterChain, error) {
-	httpConnectionManager, err := c.makeConnectionManager(virtualHosts)
+func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtualHosts []*route.VirtualHost, accessLog string) (listener.FilterChain, error) {
+	httpConnectionManager, err := c.makeConnectionManager(virtualHosts, accessLog)
 	if err != nil {
 		return listener.FilterChain{}, fmt.Errorf("failed to get httpConnectionManager: %s", err)
 	}

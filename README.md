@@ -147,6 +147,7 @@ Yggdrasil can be configured using a config file e.g:
 {
   "nodeName": "foo",
   "ingressClasses": ["multi-cluster", "multi-cluster-staging"],
+  "accessLog": "/var/log/envoy/",
   "syncSecrets": false,
   "certificates": [
     {
@@ -197,6 +198,7 @@ The Yggdrasil-specific metrics which are available from the API are:
 --config string                               config file
 --config-dump                                 Enable config dump endpoint at /configdump on the health-address HTTP server
 --debug                                       Log at debug level
+--access-log                                  path for the file logs
 --envoy-listener-ipv4-address strings         IPv4 addresses by the envoy proxy to accept incoming connections (default "0.0.0.0")
 --envoy-port uint32                           port by the envoy proxy to accept incoming connections (default 10000)
 --health-address string                       yggdrasil health API listen address (default "0.0.0.0:8081")
