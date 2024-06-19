@@ -246,8 +246,16 @@ func (ing *envoyIngress) addHealthCheckPath(path string) {
 	ing.cluster.HealthCheckPath = path
 }
 
+func (ing *envoyIngress) removeHealthCheckPath() {
+	ing.cluster.HealthCheckPath = ""
+}
+
 func (ing *envoyIngress) addHealthCheckHost(host string) {
 	ing.cluster.HealthCheckHost = host
+}
+
+func (ing *envoyIngress) removeHealthCheckHost() {
+	ing.cluster.HealthCheckHost = ""
 }
 
 func (ing *envoyIngress) addTimeout(timeout time.Duration) {
@@ -390,20 +398,22 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 					envoyIngress.addUpstream(j, 1)
 				}
 
-				if isWildcard {
-					if i.Annotations["yggdrasil.uswitch.com/healthcheck-host"] != "" {
-						envoyIngress.addHealthCheckHost(i.Annotations["yggdrasil.uswitch.com/healthcheck-host"])
-						if !validateSubdomain(ruleHost, envoyIngress.cluster.HealthCheckHost) {
-							logrus.Warnf("Healthcheck %s is not on the same subdomain for %s, annotation will be skipped", envoyIngress.cluster.HealthCheckHost, ruleHost)
-							envoyIngress.cluster.HealthCheckHost = ruleHost
-						}
-					} else {
-						logrus.Warnf("Be careful, healthcheck can't work for wildcard host : %s", envoyIngress.cluster.HealthCheckHost)
-					}
-				}
-
 				if i.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {
 					envoyIngress.addHealthCheckPath(i.Annotations["yggdrasil.uswitch.com/healthcheck-path"])
+				}
+
+				if isWildcard {
+					if i.Annotations["yggdrasil.uswitch.com/healthcheck-host"] != "" {
+						if validateSubdomain(ruleHost, envoyIngress.cluster.HealthCheckHost) {
+							envoyIngress.addHealthCheckHost(i.Annotations["yggdrasil.uswitch.com/healthcheck-host"])
+						} else {
+							logrus.Warnf("Healthcheck %s is not on the same subdomain for %s, annotation will be skipped", envoyIngress.cluster.HealthCheckHost, ruleHost)
+							envoyIngress.removeHealthCheckPath()
+						}
+					} else {
+						logrus.Warnf("Be careful, healthcheck can't work for wildcard host : %s", ruleHost)
+						envoyIngress.removeHealthCheckPath()
+					}
 				}
 
 				if i.Annotations["yggdrasil.uswitch.com/timeout"] != "" {
