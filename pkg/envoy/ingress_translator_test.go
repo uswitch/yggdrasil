@@ -334,10 +334,10 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 		t.Errorf("expected 2 host, was %d", len(c.Clusters[0].Hosts))
 	}
 	if c.Clusters[0].Hosts[0].Host != "foo.com" {
-		t.Errorf("expected cluster host for foo.com, was %v", c.Clusters[0].Hosts[0])
+		t.Errorf("expected cluster host for foo.com, was %v", c.Clusters[0].Hosts[0].Host)
 	}
 	if c.Clusters[0].Hosts[1].Host != "bar.com" {
-		t.Errorf("expected cluster host for bar.com, was %v", c.Clusters[0].Hosts[1])
+		t.Errorf("expected cluster host for bar.com, was %v", c.Clusters[0].Hosts[1].Host)
 	}
 
 	if c.VirtualHosts[0].UpstreamCluster != c.Clusters[0].Name {
@@ -375,7 +375,7 @@ func TestIngressWithIP(t *testing.T) {
 	}
 	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
 	if c.Clusters[0].Hosts[0].Host != "127.0.0.1" {
-		t.Errorf("expected cluster host to be IP address, was %v", c.Clusters[0].Hosts[0])
+		t.Errorf("expected cluster host to be IP address, was %v", c.Clusters[0].Hosts[0].Host)
 	}
 }
 
