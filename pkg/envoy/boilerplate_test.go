@@ -77,7 +77,7 @@ func TestAccessLoggerConfig(t *testing.T) {
 				cfg.Format = tc.format
 			}
 
-			fileAccessLog := makeFileAccessLog(cfg)
+			fileAccessLog := makeFileAccessLog(cfg, "/var/log/envoy/")
 			if fileAccessLog.Path != "/var/log/envoy/access.log" {
 				t.Errorf("Expected access log to use default path but was, %s", fileAccessLog.Path)
 			}
