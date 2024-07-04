@@ -329,6 +329,9 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 				},
 			},
 		},
+		TlsParams: &auth.TlsParameters{
+			TlsMinimumProtocolVersion: auth.TlsParameters_TLSv1_2,
+		},
 	}
 
 	anyTls, err := anypb.New(tls)
