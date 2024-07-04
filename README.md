@@ -75,7 +75,11 @@ Yggdrasil allows for some customisation of the route and cluster config per Ingr
 | Name                                                         | type     |
 |--------------------------------------------------------------|----------|
 | [yggdrasil.uswitch.com/healthcheck-path](#health-check-path) | string   |
-| [yggdrasil.uswitch.com/timeout](#timeout)                    | duration |
+| [yggdrasil.uswitch.com/timeout](#timeouts)                   | duration |
+| [yggdrasil.uswitch.com/cluster-timeout](#timeouts)           | duration |
+| [yggdrasil.uswitch.com/route-timeout](#timeouts)             | duration |
+| [yggdrasil.uswitch.com/per-try-timeout](#timeouts)           | duration |
+| [yggdrasil.uswitch.com/weight](#weight)                      | uint32   |
 | [yggdrasil.uswitch.com/retry-on](#retries)                   | string   |
 
 ### Health Check Path
@@ -83,12 +87,17 @@ Specifies a path to configure a [HTTP health check](https://www.envoyproxy.io/do
 
 * [config.core.v3.HealthCheck.HttpHealthCheck.Path](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/core/v3/health_check.proto#envoy-v3-api-field-config-core-v3-healthcheck-httphealthcheck-path)
 
-### Timeout
-Allows for adjusting the timeout in envoy. Currently this will set the following timeouts to this value:
+### Timeouts
+Allows for adjusting the timeout in envoy.
 
-* [config.route.v3.RouteAction.Timeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-routeaction-timeout)
-* [config.route.v3.RetryPolicy.PerTryTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-per-try-timeout)
-* [config.cluster.v3.Cluster.ConnectTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/cluster/v3/cluster.proto#envoy-v3-api-field-config-cluster-v3-cluster-connect-timeout)
+The `yggdrasil.uswitch.com/cluster-timeout` annotation will set the [config.cluster.v3.Cluster.ConnectTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/cluster/v3/cluster.proto#envoy-v3-api-field-config-cluster-v3-cluster-connect-timeout)
+
+The `yggdrasil.uswitch.com/route-timeout` annotation will set the [config.route.v3.RouteAction.Timeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-routeaction-timeout)
+
+the `yggdrasil.uswitch.com/per-try-timeout` annotation will set the [config.route.v3.RetryPolicy.PerTryTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-per-try-timeout)
+
+The `yggdrasil.uswitch.com/timeout` annotation will set all of the above with the same value. This annotation has the lowest priority, if set with one of the other TO annotations, the specific one will override the general annotation.
+
 
 ### Retries
 Allows overwriting the default retry policy's [config.route.v3.RetryPolicy.RetryOn](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-retry-on) set by the `--retry-on` flag (default 5xx). Accepts a comma-separated list of retry-on policies.

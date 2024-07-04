@@ -185,14 +185,14 @@ type envoyIngress struct {
 	cluster *cluster
 }
 
-func newEnvoyIngress(host string) *envoyIngress {
+func newEnvoyIngress(host string, timeouts DefaultTimeouts) *envoyIngress {
 	clusterName := strings.Replace(host, ".", "_", -1)
 	return &envoyIngress{
 		vhost: &virtualHost{
 			Host:            host,
 			UpstreamCluster: clusterName,
-			Timeout:         (15 * time.Second),
-			PerTryTimeout:   (5 * time.Second),
+			Timeout:         timeouts.Route,
+			PerTryTimeout:   timeouts.PerTry,
 		},
 		cluster: &cluster{
 			Name:            clusterName,
@@ -215,6 +215,18 @@ func (ing *envoyIngress) addHealthCheckPath(path string) {
 func (ing *envoyIngress) addTimeout(timeout time.Duration) {
 	ing.cluster.Timeout = timeout
 	ing.vhost.Timeout = timeout
+	ing.vhost.PerTryTimeout = timeout
+}
+
+func (ing *envoyIngress) setClusterTimeout(timeout time.Duration) {
+	ing.cluster.Timeout = timeout
+}
+
+func (ing *envoyIngress) setRouteTimeout(timeout time.Duration) {
+	ing.vhost.Timeout = timeout
+}
+
+func (ing *envoyIngress) setPerTryTimeout(timeout time.Duration) {
 	ing.vhost.PerTryTimeout = timeout
 }
 
@@ -298,7 +310,7 @@ func (envoyIng *envoyIngress) addRetryOn(ingress *k8s.Ingress) {
 	}
 }
 
-func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret) *envoyConfiguration {
+func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret, timeouts DefaultTimeouts) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
 
@@ -307,7 +319,7 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 			for _, ruleHost := range i.RulesHosts {
 				_, ok := envoyIngresses[ruleHost]
 				if !ok {
-					envoyIngresses[ruleHost] = newEnvoyIngress(ruleHost)
+					envoyIngresses[ruleHost] = newEnvoyIngress(ruleHost, timeouts)
 				}
 
 				envoyIngress := envoyIngresses[ruleHost]
@@ -321,6 +333,27 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/timeout"])
 					if err == nil {
 						envoyIngress.addTimeout(timeout)
+					}
+				}
+
+				if i.Annotations["yggdrasil.uswitch.com/cluster-timeout"] != "" {
+					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/cluster-timeout"])
+					if err == nil {
+						envoyIngress.setClusterTimeout(timeout)
+					}
+				}
+
+				if i.Annotations["yggdrasil.uswitch.com/route-timeout"] != "" {
+					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/route-timeout"])
+					if err == nil {
+						envoyIngress.setRouteTimeout(timeout)
+					}
+				}
+
+				if i.Annotations["yggdrasil.uswitch.com/per-try-timeout"] != "" {
+					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/per-try-timeout"])
+					if err == nil {
+						envoyIngress.setPerTryTimeout(timeout)
 					}
 				}
 

@@ -2,7 +2,7 @@ package envoy
 
 type option func(c *KubernetesConfigurator)
 
-// WithEWithEnvoyListenerIpv4AddressnvoyPort configures envoy IPv4 listen address into a KubernetesConfigurator
+// WithEnvoyListenerIpv4Address configures envoy IPv4 listen address into a KubernetesConfigurator
 func WithEnvoyListenerIpv4Address(address string) option {
 	return func(c *KubernetesConfigurator) {
 		c.envoyListenerIpv4Address = address
@@ -69,6 +69,13 @@ func WithHttpGrpcLogger(httpGrpcLogger HttpGrpcLogger) option {
 func WithSyncSecrets(syncSecrets bool) option {
 	return func(c *KubernetesConfigurator) {
 		c.syncSecrets = syncSecrets
+	}
+}
+
+// WithDefaultTimeouts configures the default timeouts
+func WithDefaultTimeouts(defaultTimeouts DefaultTimeouts) option {
+	return func(c *KubernetesConfigurator) {
+		c.defaultTimeouts = defaultTimeouts
 	}
 }
 
