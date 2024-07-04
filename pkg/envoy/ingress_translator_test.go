@@ -273,7 +273,7 @@ func TestGeneratesForSingleIngress(t *testing.T) {
 	}
 
 	if c.Clusters[0].Hosts[0].Weight != 1 {
-		t.Errorf("expected cluster host's weight for 1, was %s", c.Clusters[0].Hosts[0].Weight)
+		t.Errorf("expected cluster host's weight for 1, was %d", c.Clusters[0].Hosts[0].Weight)
 	}
 
 	if c.VirtualHosts[0].UpstreamCluster != c.Clusters[0].Name {
@@ -309,10 +309,10 @@ func TestGeneratesForMultipleIngressSharingSpecHost(t *testing.T) {
 		t.Errorf("expected 2 host, was %d", len(c.Clusters[0].Hosts))
 	}
 	if c.Clusters[0].Hosts[0].Host != "foo.com" {
-		t.Errorf("expected cluster host for foo.com, was %s", c.Clusters[0].Hosts[0])
+		t.Errorf("expected cluster host for foo.com, was %s", c.Clusters[0].Hosts[0].Host)
 	}
 	if c.Clusters[0].Hosts[1].Host != "bar.com" {
-		t.Errorf("expected cluster host for bar.com, was %s", c.Clusters[0].Hosts[1])
+		t.Errorf("expected cluster host for bar.com, was %s", c.Clusters[0].Hosts[1].Host)
 	}
 
 	if c.VirtualHosts[0].UpstreamCluster != c.Clusters[0].Name {
@@ -345,7 +345,7 @@ func TestIngressWithIP(t *testing.T) {
 	ingress := newIngressIP("app.com", "127.0.0.1")
 	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{})
 	if c.Clusters[0].Hosts[0].Host != "127.0.0.1" {
-		t.Errorf("expected cluster host to be IP address, was %s", c.Clusters[0].Hosts[0])
+		t.Errorf("expected cluster host to be IP address, was %s", c.Clusters[0].Hosts[0].Host)
 	}
 }
 
