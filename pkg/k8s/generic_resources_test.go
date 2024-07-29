@@ -39,7 +39,7 @@ func TestConvertExtensionsV1beta1Ingress(t *testing.T) {
 			},
 		},
 	}
-	gen, err := convertToGenericIngress(ev1b1)
+	gen, err := convertToGenericIngress(ev1b1, false, "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -89,7 +89,7 @@ func TestConvertNetworkingV1beta1Ingress(t *testing.T) {
 			},
 		},
 	}
-	gen, err := convertToGenericIngress(nv1b1)
+	gen, err := convertToGenericIngress(nv1b1, false, "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -141,7 +141,7 @@ func TestConvertNetworkingV1Ingress(t *testing.T) {
 			},
 		},
 	}
-	gen, err := convertToGenericIngress(nv1)
+	gen, err := convertToGenericIngress(nv1, false, "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -192,7 +192,7 @@ func TestCompareConvertedV1V1beta1Ingresses(t *testing.T) {
 			},
 		},
 	}
-	genv1b1, err := convertToGenericIngress(ev1b1)
+	genv1b1, err := convertToGenericIngress(ev1b1, false, "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -226,7 +226,7 @@ func TestCompareConvertedV1V1beta1Ingresses(t *testing.T) {
 			},
 		},
 	}
-	genv1, err := convertToGenericIngress(ev1)
+	genv1, err := convertToGenericIngress(ev1, false, "")
 	if err != nil {
 		t.Error(err)
 	}

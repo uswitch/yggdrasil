@@ -377,92 +377,130 @@ func validateSubdomain(ruleHost, host string) bool {
 func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v1.Secret, timeouts DefaultTimeouts, accessLog string) *envoyConfiguration {
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
+	ruleHostToIngresses := map[string][]*k8s.Ingress{}
 
 	for _, i := range ingresses {
-		for _, j := range i.Upstreams {
-			for _, ruleHost := range i.RulesHosts {
+		for _, ruleHost := range i.RulesHosts {
+			ruleHostToIngresses[ruleHost] = append(ruleHostToIngresses[ruleHost], i)
+		}
+	}
 
-				isWildcard := isWildcard(ruleHost)
+	for ruleHost, ingressList := range ruleHostToIngresses {
+		isWildcard := isWildcard(ruleHost)
 
-				_, ok := envoyIngresses[ruleHost]
-				if !ok {
-					envoyIngresses[ruleHost] = newEnvoyIngress(ruleHost, timeouts)
-				}
+		if _, ok := envoyIngresses[ruleHost]; !ok {
+			envoyIngresses[ruleHost] = newEnvoyIngress(ruleHost, timeouts)
+		}
 
-				envoyIngress := envoyIngresses[ruleHost]
+		envoyIngress := envoyIngresses[ruleHost]
 
-				if weight64, err := strconv.ParseUint(i.Annotations["yggdrasil.uswitch.com/weight"], 10, 32); err == nil {
-					if weight64 != 0 {
-						envoyIngress.addUpstream(j, uint32(weight64))
+		// Determine if any ingress is not in maintenance mode
+		hasNonMaintenance := false
+		for _, ingress := range ingressList {
+			if !ingress.Maintenance {
+				hasNonMaintenance = true
+				break
+			}
+		}
+
+		// Add upstreams based on maintenance status
+		for _, ingress := range ingressList {
+			for _, j := range ingress.Upstreams {
+				// Skip this upstream if cluster is in maintenance but keep it if no other cluster can serve it
+				if !hasNonMaintenance || !ingress.Maintenance {
+					// Check if the upstream is already added
+					exists := false
+					for _, host := range envoyIngress.cluster.Hosts {
+						if host.Host == j {
+							exists = true
+							break
+						}
+					}
+					if exists {
+						continue // skip if the upstream already exists
+					}
+
+					class := "none"
+					if ingress.Class != nil {
+						class = *ingress.Class
+					}
+
+					// Add upstream
+					if weight64, err := strconv.ParseUint(ingress.Annotations["yggdrasil.uswitch.com/weight"], 10, 32); err == nil {
+						if weight64 != 0 {
+							envoyIngress.addUpstream(j, uint32(weight64))
+							EnvoyUpstreamInfo.WithLabelValues(strings.ReplaceAll(ruleHost, ".", "_"), j, ingress.Namespace, class, ingress.KubernetesClusterName, ingress.Name).Set(float64(1))
+						}
+					} else {
+						envoyIngress.addUpstream(j, 1)
+						EnvoyUpstreamInfo.WithLabelValues(strings.ReplaceAll(ruleHost, ".", "_"), j, ingress.Namespace, class, ingress.KubernetesClusterName, ingress.Name).Set(float64(1))
 					}
 				} else {
-					envoyIngress.addUpstream(j, 1)
+					logrus.Warnf("Endpoint is in maintenance mode, upstream %s will not be added for host %s", j, ruleHost)
 				}
+			}
 
-				if i.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {
-					envoyIngress.addHealthCheckPath(i.Annotations["yggdrasil.uswitch.com/healthcheck-path"])
-				}
-
-				if isWildcard {
-					if i.Annotations["yggdrasil.uswitch.com/healthcheck-host"] != "" {
-						if validateSubdomain(ruleHost, envoyIngress.cluster.HealthCheckHost) {
-							envoyIngress.addHealthCheckHost(i.Annotations["yggdrasil.uswitch.com/healthcheck-host"])
-						} else {
-							logrus.Warnf("Healthcheck %s is not on the same subdomain for %s, annotation will be skipped", envoyIngress.cluster.HealthCheckHost, ruleHost)
-							envoyIngress.removeHealthCheckPath()
-						}
-					} else {
-						logrus.Warnf("Be careful, healthcheck can't work for wildcard host : %s", ruleHost)
-						envoyIngress.removeHealthCheckPath()
+			if isWildcard {
+				if ingress.Annotations["yggdrasil.uswitch.com/healthcheck-host"] != "" {
+					envoyIngress.addHealthCheckHost(ingress.Annotations["yggdrasil.uswitch.com/healthcheck-host"])
+					if !validateSubdomain(ruleHost, envoyIngress.cluster.HealthCheckHost) {
+						logrus.Warnf("Healthcheck %s is not on the same subdomain for %s, annotation will be skipped", envoyIngress.cluster.HealthCheckHost, ruleHost)
+						envoyIngress.cluster.HealthCheckHost = ruleHost
 					}
+				} else {
+					logrus.Warnf("Be careful, healthcheck can't work for wildcard host : %s", envoyIngress.cluster.HealthCheckHost)
 				}
+			}
 
-				if i.Annotations["yggdrasil.uswitch.com/timeout"] != "" {
-					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/timeout"])
-					if err == nil {
-						envoyIngress.addTimeout(timeout)
-					}
+			if ingress.Annotations["yggdrasil.uswitch.com/healthcheck-path"] != "" {
+				envoyIngress.addHealthCheckPath(ingress.Annotations["yggdrasil.uswitch.com/healthcheck-path"])
+			}
+
+			if ingress.Annotations["yggdrasil.uswitch.com/timeout"] != "" {
+				timeout, err := time.ParseDuration(ingress.Annotations["yggdrasil.uswitch.com/timeout"])
+				if err == nil {
+					envoyIngress.addTimeout(timeout)
 				}
+			}
 
-				if i.Annotations["yggdrasil.uswitch.com/cluster-timeout"] != "" {
-					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/cluster-timeout"])
-					if err == nil {
-						envoyIngress.setClusterTimeout(timeout)
-					}
+			if ingress.Annotations["yggdrasil.uswitch.com/cluster-timeout"] != "" {
+				timeout, err := time.ParseDuration(ingress.Annotations["yggdrasil.uswitch.com/cluster-timeout"])
+				if err == nil {
+					envoyIngress.setClusterTimeout(timeout)
 				}
+			}
 
-				if i.Annotations["yggdrasil.uswitch.com/route-timeout"] != "" {
-					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/route-timeout"])
-					if err == nil {
-						envoyIngress.setRouteTimeout(timeout)
-					}
+			if ingress.Annotations["yggdrasil.uswitch.com/route-timeout"] != "" {
+				timeout, err := time.ParseDuration(ingress.Annotations["yggdrasil.uswitch.com/route-timeout"])
+				if err == nil {
+					envoyIngress.setRouteTimeout(timeout)
 				}
+			}
 
-				if i.Annotations["yggdrasil.uswitch.com/per-try-timeout"] != "" {
-					timeout, err := time.ParseDuration(i.Annotations["yggdrasil.uswitch.com/per-try-timeout"])
-					if err == nil {
-						envoyIngress.setPerTryTimeout(timeout)
-					}
+			if ingress.Annotations["yggdrasil.uswitch.com/per-try-timeout"] != "" {
+				timeout, err := time.ParseDuration(ingress.Annotations["yggdrasil.uswitch.com/per-try-timeout"])
+				if err == nil {
+					envoyIngress.setPerTryTimeout(timeout)
 				}
+			}
 
-				if i.Annotations["yggdrasil.uswitch.com/upstream-http-version"] != "" {
-					// TODO validate, add error path
-					envoyIngress.setUpstreamHttpVersion(i.Annotations["yggdrasil.uswitch.com/upstream-http-version"])
-				}
+			if ingress.Annotations["yggdrasil.uswitch.com/upstream-http-version"] != "" {
+				// TODO validate, add error path
+				envoyIngress.setUpstreamHttpVersion(ingress.Annotations["yggdrasil.uswitch.com/upstream-http-version"])
+			}
 
-				envoyIngress.addRetryOn(i)
+			envoyIngress.addRetryOn(ingress)
 
-				if syncSecrets && envoyIngress.vhost.TlsKey == "" && envoyIngress.vhost.TlsCert == "" {
-					if hostTlsSecret, err := getHostTlsSecret(i, ruleHost, secrets); err != nil {
-						logrus.Infof(err.Error())
-					} else {
-						valid, err := validateTlsSecret(hostTlsSecret)
-						if err != nil {
-							logrus.Warnf("secret %s/%s is not valid: %s", hostTlsSecret.Namespace, hostTlsSecret.Name, err.Error())
-						} else if valid {
-							envoyIngress.vhost.TlsKey = string(hostTlsSecret.Data["tls.key"])
-							envoyIngress.vhost.TlsCert = string(hostTlsSecret.Data["tls.crt"])
-						}
+			if syncSecrets && envoyIngress.vhost.TlsKey == "" && envoyIngress.vhost.TlsCert == "" {
+				if hostTlsSecret, err := getHostTlsSecret(ingress, ruleHost, secrets); err != nil {
+					logrus.Infof(err.Error())
+				} else {
+					valid, err := validateTlsSecret(hostTlsSecret)
+					if err != nil {
+						logrus.Warnf("secret %s/%s is not valid: %s", hostTlsSecret.Namespace, hostTlsSecret.Name, err.Error())
+					} else if valid {
+						envoyIngress.vhost.TlsKey = string(hostTlsSecret.Data["tls.key"])
+						envoyIngress.vhost.TlsCert = string(hostTlsSecret.Data["tls.crt"])
 					}
 				}
 			}

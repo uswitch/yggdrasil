@@ -7,7 +7,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
@@ -15,14 +14,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type IngressLister interface {
-	List() ([]v1beta1.Ingress, error)
+type IngressStore struct {
+	Store                 cache.Store
+	Maintenance           bool
+	KubernetesClusterName string
 }
 
 type Aggregator struct {
 	factories     []*informers.SharedInformerFactory
 	events        chan SyncDataEvent
-	ingressStores []cache.Store
+	ingressStores []IngressStore
 	secretsStore  []cache.Store
 }
 
@@ -46,20 +47,27 @@ func (a *Aggregator) GetSecrets() ([]*v1.Secret, error) {
 }
 
 // NewAggregator returns a new Aggregator initialized with resource informers
-func NewAggregator(k8sClients []*kubernetes.Clientset, ctx context.Context, syncSecrets bool) *Aggregator {
+func NewAggregator(k8sClients []KubernetesConfig, ctx context.Context, syncSecrets bool) *Aggregator {
 	a := Aggregator{
 		events:        make(chan SyncDataEvent, watch.DefaultChanSize),
-		ingressStores: []cache.Store{},
+		ingressStores: []IngressStore{},
 		secretsStore:  []cache.Store{},
 	}
 	informersSynced := []cache.InformerSynced{}
 
 	for _, c := range k8sClients {
-		factory := informers.NewSharedInformerFactory(c, time.Minute)
+		factory := informers.NewSharedInformerFactory(c.source, time.Minute)
 
-		ingressInformer := getIngressInformer(factory, c)
+		ingressInformer := getIngressInformer(factory, c.source)
 		a.EventsIngresses(ctx, ingressInformer)
-		a.ingressStores = append(a.ingressStores, ingressInformer.GetStore())
+
+		ingressStore := IngressStore{
+			Store:                 ingressInformer.GetStore(),
+			Maintenance:           c.maintenance,
+			KubernetesClusterName: c.kubernetesClusterName,
+		}
+
+		a.ingressStores = append(a.ingressStores, ingressStore)
 
 		a.factories = append(a.factories, &factory)
 		informersSynced = append(informersSynced, ingressInformer.HasSynced)
@@ -70,7 +78,7 @@ func NewAggregator(k8sClients []*kubernetes.Clientset, ctx context.Context, sync
 			})
 			// using new factory here to apply filter to secrets lister only
 			// see https://github.com/kubernetes/kubernetes/issues/90262#issuecomment-671479190
-			secretsFactory := informers.NewSharedInformerFactoryWithOptions(c, time.Minute, tlsFilter)
+			secretsFactory := informers.NewSharedInformerFactoryWithOptions(c.source, time.Minute, tlsFilter)
 			secretsInformer := secretsFactory.Core().V1().Secrets().Informer()
 			a.EventsSecrets(ctx, secretsInformer)
 			a.secretsStore = append(a.secretsStore, secretsInformer.GetStore())

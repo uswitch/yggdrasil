@@ -160,7 +160,9 @@ Yggdrasil can be configured using a config file e.g:
     {
       "token": "xxxxxxxxxxxxxxxx",
       "apiServer": "https://cluster1.api.com",
-      "ca": "pathto/cluster1/ca"
+      "ca": "pathto/cluster1/ca",
+      "maintenance": false,
+      "kubernetesClusterName": "cluster1"
     },
     {
       "tokenPath": "/path/to/a/token",
@@ -177,18 +179,29 @@ The list of certificates will be loaded by Yggdrasil and served to the Envoy nod
 The `ingressClasses` is a list of ingress classes that yggdrasil will watch for.
 Each cluster represents a different Kubernetes cluster with the token being a service account token for that cluster. `ca` is the Path to the ca certificate for that cluster.
 
+Maintenance is a new mode that allow to set a cluster in maintenance mode :
+- Upstream only in one cluster are keeped
+- Upstream in at least 1 cluster that is not in maintenance is deleted for the cluster in maintenance mode
+- Yggdrasil will Fatal if all clusters are in maintenance mode.
+
+This is optional and equal to `false` by default.
+
+kubernetesClusterName is the name of the cluster, it's only for information and will be used for metrics. Optional defaults to `""`
+
 ## Metrics
 Yggdrasil has a number of Go, gRPC, Prometheus, and Yggdrasil-specific metrics built in which can be reached by cURLing the `/metrics` path at the health API address/port (default: 8081). See [Flags](#Flags) for more information on configuring the health API address/port.
 
 The Yggdrasil-specific metrics which are available from the API are:
 
-| Name                        | Description                                    | Type     |
-|-----------------------------|------------------------------------------------|----------|
-| yggdrasil_cluster_updates   | Number of times the clusters have been updated | counter  |
-| yggdrasil_clusters          | Total number of clusters generated             | gauge    |
-| yggdrasil_ingresses         | Total number of matching ingress objects       | gauge    |
-| yggdrasil_listener_updates  | Number of times the listener has been updated  | counter  |
-| yggdrasil_virtual_hosts     | Total number of virtual hosts generated        | gauge    |
+| Name                                         | Description                                    | Type     |
+|----------------------------------------------|------------------------------------------------|----------|
+| yggdrasil_cluster_updates                    | Number of times the clusters have been updated | counter  |
+| yggdrasil_clusters                           | Total number of clusters generated             | gauge    |
+| yggdrasil_ingresses                          | Total number of matching ingress objects       | gauge    |
+| yggdrasil_listener_updates                   | Number of times the listener has been updated  | counter  |
+| yggdrasil_virtual_hosts                      | Total number of virtual hosts generated        | gauge    |
+| yggdrasil_kubernetes_cluster_in_maintenance | Return 1 if cluster in maintenance or 0        | gauge    |
+| yggdrasil_upstream_info                      | Provide informations relate to upstream        | gauge    |
 
 ## Flags
 ```

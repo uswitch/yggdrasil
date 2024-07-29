@@ -17,7 +17,7 @@ import (
 	gal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	eauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	hcfg "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
-	tlsInspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
+	tls_inspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	previousHosts "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -373,7 +373,7 @@ func (c *KubernetesConfigurator) makeFilterChain(certificate Certificate, virtua
 }
 
 func makeListener(filterChains []*listener.FilterChain, envoyListenerIpv4Address []string, envoyListenPort uint32) (*listener.Listener, error) {
-	tlsInspectorConfig, err := anypb.New(&tlsInspector.TlsInspector{})
+	tlsInspectorConfig, err := anypb.New(&tls_inspector.TlsInspector{})
 	if err != nil {
 		return &listener.Listener{}, fmt.Errorf("failed to marshal tls_inspector config struct to typed struct: %s", err)
 	}

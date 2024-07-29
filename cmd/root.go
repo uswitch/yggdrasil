@@ -23,10 +23,12 @@ import (
 )
 
 type clusterConfig struct {
-	APIServer string `json:"apiServer"`
-	Ca        string `json:"ca"`
-	Token     string `json:"token"`
-	TokenPath string `json:"tokenPath"`
+	APIServer             string `json:"apiServer"`
+	Ca                    string `json:"ca"`
+	Token                 string `json:"token"`
+	TokenPath             string `json:"tokenPath"`
+	Maintenance           bool   `json:"maintenance"`
+	KubernetesClusterName string `json:"kubernetesClusterName"`
 }
 
 type config struct {
@@ -292,17 +294,17 @@ func createClientConfig(path string) (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags("", path)
 }
 
-func createSources(clusters []clusterConfig) ([]*kubernetes.Clientset, error) {
-	sources := []*kubernetes.Clientset{}
+func createSources(clusters []clusterConfig) ([]k8s.KubernetesConfig, error) {
+	var sources []k8s.KubernetesConfig
+	allInMaintenance := true
 
 	for _, cluster := range clusters {
-
 		var token string
 
 		if cluster.TokenPath != "" {
 			bytes, err := os.ReadFile(cluster.TokenPath)
 			if err != nil {
-				return sources, err
+				return nil, err
 			}
 			token = string(bytes)
 		} else {
@@ -318,16 +320,32 @@ func createSources(clusters []clusterConfig) ([]*kubernetes.Clientset, error) {
 		}
 		clientSet, err := kubernetes.NewForConfig(config)
 		if err != nil {
-			return sources, err
+			return nil, err
 		}
-		sources = append(sources, clientSet)
+
+		kubernetesConfig := k8s.NewKubernetesConfig(cluster.Maintenance, clientSet, cluster.KubernetesClusterName)
+
+		envoy.KubernetesClusterInMaintenance.WithLabelValues(cluster.APIServer).Set(float64(0))
+
+		if cluster.Maintenance {
+			envoy.KubernetesClusterInMaintenance.WithLabelValues(cluster.APIServer).Set(float64(1))
+			log.Warnf("Kubernetes Cluster with API Endpoint %s is in maintenance mode", cluster.APIServer)
+		} else {
+			allInMaintenance = false
+		}
+
+		sources = append(sources, *kubernetesConfig)
+	}
+
+	if allInMaintenance {
+		log.Fatal("All clusters are in maintenance mode")
 	}
 
 	return sources, nil
 }
 
-func configFromKubeConfig(paths []string) ([]*kubernetes.Clientset, error) {
-	sources := []*kubernetes.Clientset{}
+func configFromKubeConfig(paths []string) ([]k8s.KubernetesConfig, error) {
+	var sources []k8s.KubernetesConfig
 
 	for _, configPath := range paths {
 		config, err := createClientConfig(configPath)
@@ -338,7 +356,10 @@ func configFromKubeConfig(paths []string) ([]*kubernetes.Clientset, error) {
 		if err != nil {
 			return sources, err
 		}
-		sources = append(sources, clientSet)
+
+		kubernetesConfig := k8s.NewKubernetesConfig(false, clientSet, "")
+
+		sources = append(sources, *kubernetesConfig)
 	}
 
 	return sources, nil
