@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    external-dns.alpha.kubernetes.io/target: 10.1.0.27
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"external-dns.alpha.kubernetes.io/target":"10.1.0.27","kubernetes.io/ingress.class":"nginx","nginx.ingress.kubernetes.io/proxy-body-size":"50m","nginx.ingress.kubernetes.io/server-snippet":"location /healthz {\n  return 200 \"ok\";\n}\n","yggdrasil.uswitch.com/healthcheck-host":"health.test-gule.numberly.in","yggdrasil.uswitch.com/healthcheck-path":"/healthz"},"name":"test-gule","namespace":"team-infrastructure"},"spec":{"ingressClassName":"nginx","rules":[{"host":"*.test-gule.numberly.in","http":{"paths":[{"backend":{"service":{"name":"ssl-redirect","port":{"name":"use-annotation"}}},"path":"/*","pathType":"ImplementationSpecific"}]}}],"tls":[{"hosts":["*.test-gule.numberly.in"],"secretName":"vault-star.test-gule.numberly.in"}]}}
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location /healthz {
+        return 200 "ok";
+      }
+    yggdrasil.uswitch.com/healthcheck-host: health.test-gule.numberly.in
+    yggdrasil.uswitch.com/healthcheck-path: /healthz
+  creationTimestamp: "2024-05-14T09:25:07Z"
+  generation: 1
+  name: test-gule
+  namespace: team-infrastructure
+  resourceVersion: "2773820583"
+  uid: dc22e3bf-736d-4826-a6c0-076bb77031e4
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: '*.test-gule.numberly.in'
+    http:
+      paths:
+      - backend:
+          service:
+            name: ssl-redirect
+            port:
+              name: use-annotation
+        path: /*
+        pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    - '*.test-gule.numberly.in'
+    secretName: vault-star.test-gule.numberly.in
+status:
+  loadBalancer:
+    ingress:
+    - ip: 10.17.0.2

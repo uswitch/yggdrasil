@@ -16,6 +16,17 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+type UpstreamInfo struct {
+	RuleHost    string
+	Upstream    string
+	Namespace   string
+	Class       string
+	ClusterName string
+	IngressName string
+}
+
+var previousUpstreams = make(map[string]UpstreamInfo)
+
 func sortCluster(clusters []*cluster) {
 	sort.Slice(clusters, func(i int, j int) bool {
 		return clusters[i].identity() < clusters[j].identity()
@@ -378,6 +389,7 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 	cfg := &envoyConfiguration{}
 	envoyIngresses := map[string]*envoyIngress{}
 	ruleHostToIngresses := map[string][]*k8s.Ingress{}
+	currentUpstreams := make(map[string]UpstreamInfo)
 
 	for _, i := range ingresses {
 		for _, ruleHost := range i.RulesHosts {
@@ -429,12 +441,21 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 					if weight64, err := strconv.ParseUint(ingress.Annotations["yggdrasil.uswitch.com/weight"], 10, 32); err == nil {
 						if weight64 != 0 {
 							envoyIngress.addUpstream(j, uint32(weight64))
-							EnvoyUpstreamInfo.WithLabelValues(strings.ReplaceAll(ruleHost, ".", "_"), j, ingress.Namespace, class, ingress.KubernetesClusterName, ingress.Name).Set(float64(1))
 						}
 					} else {
 						envoyIngress.addUpstream(j, 1)
-						EnvoyUpstreamInfo.WithLabelValues(strings.ReplaceAll(ruleHost, ".", "_"), j, ingress.Namespace, class, ingress.KubernetesClusterName, ingress.Name).Set(float64(1))
 					}
+					upstreamKey := fmt.Sprintf("%s-%s", ruleHost, j)
+					currentUpstreams[upstreamKey] = UpstreamInfo{
+						RuleHost:    strings.ReplaceAll(ruleHost, ".", "_"),
+						Upstream:    j,
+						Namespace:   ingress.Namespace,
+						Class:       class,
+						ClusterName: ingress.KubernetesClusterName,
+						IngressName: ingress.Name,
+					}
+
+					EnvoyUpstreamInfo.WithLabelValues(strings.ReplaceAll(ruleHost, ".", "_"), j, ingress.Namespace, class, ingress.KubernetesClusterName, ingress.Name).Set(float64(1))
 				} else {
 					logrus.Warnf("Endpoint is in maintenance mode, upstream %s will not be added for host %s", j, ruleHost)
 				}
@@ -506,6 +527,16 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 			}
 		}
 	}
+
+	// Identify and remove upstreams that no longer exist
+	for upstreamKey, info := range previousUpstreams {
+		if _, exists := currentUpstreams[upstreamKey]; !exists {
+			EnvoyUpstreamInfo.DeleteLabelValues(info.RuleHost, info.Upstream, info.Namespace, info.Class, info.ClusterName, info.IngressName)
+		}
+	}
+
+	// Update the previous state
+	previousUpstreams = currentUpstreams
 
 	for _, ingress := range envoyIngresses {
 		cfg.Clusters = append(cfg.Clusters, ingress.cluster)
