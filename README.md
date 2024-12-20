@@ -76,6 +76,7 @@ Yggdrasil allows for some customisation of the route and cluster config per Ingr
 |--------------------------------------------------------------|----------|
 | [yggdrasil.uswitch.com/healthcheck-path](#health-check-path) | string   |
 | [yggdrasil.uswitch.com/timeout](#timeout)                    | duration |
+| [yggdrasil.uswitch.com/weight](#weight)                      | uint32   |
 | [yggdrasil.uswitch.com/retry-on](#retries)                   | string   |
 
 ### Health Check Path
@@ -89,6 +90,9 @@ Allows for adjusting the timeout in envoy. Currently this will set the following
 * [config.route.v3.RouteAction.Timeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-routeaction-timeout)
 * [config.route.v3.RetryPolicy.PerTryTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-per-try-timeout)
 * [config.cluster.v3.Cluster.ConnectTimeout](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/cluster/v3/cluster.proto#envoy-v3-api-field-config-cluster-v3-cluster-connect-timeout)
+
+### Weight
+Allows for adjusting the [load balancer weights](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/endpoint/v3/endpoint_components.proto#config-endpoint-v3-lbendpoint) in envoy.
 
 ### Retries
 Allows overwriting the default retry policy's [config.route.v3.RetryPolicy.RetryOn](https://www.envoyproxy.io/docs/envoy/v1.19.0/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-retrypolicy-retry-on) set by the `--retry-on` flag (default 5xx). Accepts a comma-separated list of retry-on policies.
@@ -105,6 +109,7 @@ metadata:
   annotations:
     yggdrasil.uswitch.com/healthcheck-path: /healthz
     yggdrasil.uswitch.com/timeout: 30s
+    yggdrasil.uswitch.com/weight: "12"
     yggdrasil.uswitch.com/retry-on: gateway-error,connect-failure
 spec:
   rules:
