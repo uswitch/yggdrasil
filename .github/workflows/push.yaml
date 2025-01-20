@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: "1.17"
     - run: make test
@@ -17,11 +17,11 @@ jobs:
     needs: test
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: "1.17"
     - run: make build-linux
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: bin
         path: bin/
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: bin
         path: bin/
@@ -48,7 +48,7 @@ jobs:
         tags: |
           type=semver,pattern={{raw}}
           type=sha,prefix=,format=long,
-    - uses: docker/build-push-action@v5
+    - uses: docker/build-push-action@v6
       with:
         context: .
         labels: ${{ steps.meta.outputs.labels }}
