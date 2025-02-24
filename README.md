@@ -5,7 +5,7 @@
 ----
 Yggdrasil is an Envoy control plane that configures listeners and clusters based off Kubernetes ingresses from multiple Kube Clusters. This allows you to have an envoy cluster acting as a mutli-cluster loadbalancer for Kubernetes. This was something we needed as we wanted our apps to be highly available in the event of a cluster outage but did not want the solution to live inside of Kubernetes itself.
 
-`Note:` Currently we support versions 1.20.x to 1.26.x of Envoy.</br>
+`Note:` Currently we support versions 1.20.x to 1.29.x of Envoy.</br>
 `Note:` Yggdrasil now uses [Go modules](https://github.com/golang/go/wiki/Modules) to handle dependencies.
 
 ## Usage

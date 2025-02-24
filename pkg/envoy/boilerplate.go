@@ -3,6 +3,7 @@ package envoy
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	cal "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -286,10 +287,27 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 		}
 	}
 
+	internalCidrRanges := make([]*core.CidrRange, len(c.internalCidrRanges))
+
+	for idx, cidrRange := range c.internalCidrRanges {
+		cideRangeParts := strings.SplitN(cidrRange, "/", 2)
+		prefixLen, err := strconv.ParseInt(cideRangeParts[1], 10, 32)
+		if err != nil {
+			return &hcm.HttpConnectionManager{}, err
+		}
+		internalCidrRanges[idx] = &core.CidrRange{
+			AddressPrefix: cideRangeParts[0],
+			PrefixLen:     &wrapperspb.UInt32Value{Value: uint32(prefixLen)},
+		}
+	}
+
 	return &hcm.HttpConnectionManager{
 		CodecType:   hcm.HttpConnectionManager_AUTO,
 		StatPrefix:  "ingress_http",
 		HttpFilters: filter,
+		InternalAddressConfig: &hcm.HttpConnectionManager_InternalAddressConfig{
+			CidrRanges: internalCidrRanges,
+		},
 		UpgradeConfigs: []*hcm.HttpConnectionManager_UpgradeConfig{
 			{
 				UpgradeType: "websocket",

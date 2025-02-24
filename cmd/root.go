@@ -82,6 +82,7 @@ func init() {
 	rootCmd.PersistentFlags().String("key", "", "keyfile")
 	rootCmd.PersistentFlags().String("ca", "", "trustedCA")
 	rootCmd.PersistentFlags().StringSlice("ingress-classes", nil, "Ingress classes to watch")
+	rootCmd.PersistentFlags().StringSlice("internal-cidr-ranges", []string{"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"}, "CIDR ranges to treat as internal")
 	rootCmd.PersistentFlags().StringArrayVar(&kubeConfig, "kube-config", nil, "Path to kube config")
 	rootCmd.PersistentFlags().Bool("debug", false, "Log at debug level")
 	rootCmd.PersistentFlags().Bool("config-dump", false, "Enable config dump endpoint at /configdump on the health-address HTTP server")
@@ -115,6 +116,7 @@ func init() {
 	viper.BindPFlag("healthAddress", rootCmd.PersistentFlags().Lookup("health-address"))
 	viper.BindPFlag("nodeName", rootCmd.PersistentFlags().Lookup("node-name"))
 	viper.BindPFlag("ingressClasses", rootCmd.PersistentFlags().Lookup("ingress-classes"))
+	viper.BindPFlag("internalCidrRanges", rootCmd.PersistentFlags().Lookup("internal-cidr-ranges"))
 	viper.BindPFlag("cert", rootCmd.PersistentFlags().Lookup("cert"))
 	viper.BindPFlag("key", rootCmd.PersistentFlags().Lookup("key"))
 	viper.BindPFlag("trustCA", rootCmd.PersistentFlags().Lookup("ca"))
@@ -231,6 +233,7 @@ func main(*cobra.Command, []string) error {
 		c.Certificates,
 		viper.GetString("trustCA"),
 		viper.GetStringSlice("ingressClasses"),
+		viper.GetStringSlice("internalCidrRanges"),
 		envoy.WithUpstreamPort(uint32(viper.GetInt32("upstreamPort"))),
 		envoy.WithEnvoyListenerIpv4Address(viper.GetString("envoyListenerIpv4Address")),
 		envoy.WithEnvoyPort(uint32(viper.GetInt32("envoyPort"))),

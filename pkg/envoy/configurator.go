@@ -54,6 +54,7 @@ type AccessLogger struct {
 // KubernetesConfigurator takes a given Ingress Class and lister to find only ingresses of that class
 type KubernetesConfigurator struct {
 	ingressClasses             []string
+	internalCidrRanges         []string
 	nodeID                     string
 	syncSecrets                bool
 	certificates               []Certificate
@@ -78,7 +79,7 @@ type KubernetesConfigurator struct {
 }
 
 // NewKubernetesConfigurator returns a Kubernetes configurator given a lister and ingress class
-func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca string, ingressClasses []string, options ...option) *KubernetesConfigurator {
+func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca string, ingressClasses []string, internalCidrRanges []string, options ...option) *KubernetesConfigurator {
 	c := &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificates: certificates, trustCA: ca}
 	for _, opt := range options {
 		opt(c)
