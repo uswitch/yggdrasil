@@ -80,7 +80,7 @@ type KubernetesConfigurator struct {
 
 // NewKubernetesConfigurator returns a Kubernetes configurator given a lister and ingress class
 func NewKubernetesConfigurator(nodeID string, certificates []Certificate, ca string, ingressClasses []string, internalCidrRanges []string, options ...option) *KubernetesConfigurator {
-	c := &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificates: certificates, trustCA: ca}
+	c := &KubernetesConfigurator{ingressClasses: ingressClasses, nodeID: nodeID, certificates: certificates, trustCA: ca, internalCidrRanges: internalCidrRanges}
 	for _, opt := range options {
 		opt(c)
 	}
