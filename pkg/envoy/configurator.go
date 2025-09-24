@@ -30,6 +30,12 @@ type UpstreamHealthCheck struct {
 	HealthyThreshold   uint32        `json:"healtyThreshold"`
 }
 
+type DefaultTimeouts struct {
+	Cluster time.Duration
+	Route   time.Duration
+	PerTry  time.Duration
+}
+
 type HttpExtAuthz struct {
 	Cluster             string        `json:"cluster"`
 	Timeout             time.Duration `json:"timeout"`
@@ -68,6 +74,7 @@ type KubernetesConfigurator struct {
 	useRemoteAddress           bool
 	httpExtAuthz               HttpExtAuthz
 	httpGrpcLogger             HttpGrpcLogger
+	defaultTimeouts            DefaultTimeouts
 	accessLogger               AccessLogger
 	defaultRetryOn             string
 	tracingProvider            string
@@ -93,7 +100,7 @@ func (c *KubernetesConfigurator) Generate(ingresses []*k8s.Ingress, secrets []*v
 	defer c.Unlock()
 
 	validIngresses := validIngressFilter(classFilter(ingresses, c.ingressClasses))
-	config := translateIngresses(validIngresses, c.syncSecrets, secrets)
+	config := translateIngresses(validIngresses, c.syncSecrets, secrets, c.defaultTimeouts)
 
 	vmatch, cmatch := config.equals(c.previousConfig)
 

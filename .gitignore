@@ -3,5 +3,5 @@ command
 testing
 ca/
 config/
-envoy/
+/envoy/
 
