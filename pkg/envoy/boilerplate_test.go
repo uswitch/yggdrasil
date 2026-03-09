@@ -8,6 +8,8 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	eal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
+	stateful_session "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	cookie_session "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	"github.com/golang/protobuf/ptypes/duration"
 )
 
@@ -106,4 +108,78 @@ func mustParseDuration(dur string) time.Duration {
 		panic(fmt.Sprintf("Failed test setup: %s", err))
 	}
 	return d
+}
+
+func TestMakeVirtualHostWithStickySession(t *testing.T) {
+	vhost := &virtualHost{
+		Host:                    "app.example.com",
+		UpstreamCluster:         "app_example_com",
+		Timeout:                 15 * time.Second,
+		PerTryTimeout:           5 * time.Second,
+		StickySession:           true,
+		StickySessionCookieName: "my-session",
+		StickySessionCookiePath: "/",
+		StickySessionCookieTTL:  3600 * time.Second,
+	}
+
+	vh, err := makeVirtualHost(vhost, -1, "5xx")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	if vh.TypedPerFilterConfig == nil {
+		t.Fatal("expected TypedPerFilterConfig to be set")
+	}
+
+	anyConfig, ok := vh.TypedPerFilterConfig["envoy.filters.http.stateful_session"]
+	if !ok {
+		t.Fatal("expected stateful_session key in TypedPerFilterConfig")
+	}
+
+	perRoute := &stateful_session.StatefulSessionPerRoute{}
+	if err := anyConfig.UnmarshalTo(perRoute); err != nil {
+		t.Fatalf("failed to unmarshal per-route config: %s", err)
+	}
+
+	ss := perRoute.GetStatefulSession()
+	if ss == nil {
+		t.Fatal("expected StatefulSession override, got nil")
+	}
+
+	if ss.SessionState.Name != "envoy.http.stateful_session.cookie" {
+		t.Errorf("expected session state name 'envoy.http.stateful_session.cookie', got '%s'", ss.SessionState.Name)
+	}
+
+	cookieState := &cookie_session.CookieBasedSessionState{}
+	if err := ss.SessionState.TypedConfig.UnmarshalTo(cookieState); err != nil {
+		t.Fatalf("failed to unmarshal cookie config: %s", err)
+	}
+
+	if cookieState.Cookie.Name != "my-session" {
+		t.Errorf("expected cookie name 'my-session', got '%s'", cookieState.Cookie.Name)
+	}
+	if cookieState.Cookie.Ttl.Seconds != 3600 {
+		t.Errorf("expected cookie TTL 3600s, got %d", cookieState.Cookie.Ttl.Seconds)
+	}
+	if cookieState.Cookie.Path != "/" {
+		t.Errorf("expected cookie path '/', got '%s'", cookieState.Cookie.Path)
+	}
+}
+
+func TestMakeVirtualHostWithoutStickySession(t *testing.T) {
+	vhost := &virtualHost{
+		Host:            "app.example.com",
+		UpstreamCluster: "app_example_com",
+		Timeout:         15 * time.Second,
+		PerTryTimeout:   5 * time.Second,
+	}
+
+	vh, err := makeVirtualHost(vhost, -1, "5xx")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	if vh.TypedPerFilterConfig != nil {
+		t.Error("expected TypedPerFilterConfig to be nil when sticky session is disabled")
+	}
 }

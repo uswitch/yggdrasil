@@ -4,9 +4,12 @@ import (
 	"fmt"
 
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	stateful_session "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 )
+
+const statefulSessionFilterName = "envoy.filters.http.stateful_session"
 
 type httpFilterBuilder struct {
 	filters []*hcm.HttpFilter
@@ -15,6 +18,18 @@ type httpFilterBuilder struct {
 func (b *httpFilterBuilder) Add(filter *hcm.HttpFilter) *httpFilterBuilder {
 	b.filters = append(b.filters, filter)
 	return b
+}
+
+func makeStatefulSessionFilter() (*hcm.HttpFilter, error) {
+	statefulSessionConfig := &stateful_session.StatefulSession{}
+	anyConfig, err := anypb.New(statefulSessionConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal stateful session config: %s", err)
+	}
+	return &hcm.HttpFilter{
+		Name:       statefulSessionFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyConfig},
+	}, nil
 }
 
 func (b *httpFilterBuilder) Filters() ([]*hcm.HttpFilter, error) {

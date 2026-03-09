@@ -128,6 +128,22 @@ func TestVirtualHostEquality(t *testing.T) {
 	if a.Equals(e) {
 		t.Error("virtual hosts with different per try timeout values should not be equal")
 	}
+
+	f := &virtualHost{Host: "foo", StickySession: true, StickySessionCookieName: "sess", StickySessionCookiePath: "/", StickySessionCookieTTL: 3600 * time.Second}
+	if a.Equals(f) {
+		t.Error("virtual hosts with different sticky session values should not be equal")
+	}
+
+	g := &virtualHost{Host: "foo", StickySession: true, StickySessionCookieName: "sess", StickySessionCookiePath: "/", StickySessionCookieTTL: 3600 * time.Second}
+	h := &virtualHost{Host: "foo", StickySession: true, StickySessionCookieName: "sess", StickySessionCookiePath: "/", StickySessionCookieTTL: 3600 * time.Second}
+	if !g.Equals(h) {
+		t.Error("virtual hosts with same sticky session values should be equal")
+	}
+
+	i := &virtualHost{Host: "foo", StickySession: true, StickySessionCookieName: "different", StickySessionCookiePath: "/", StickySessionCookieTTL: 3600 * time.Second}
+	if g.Equals(i) {
+		t.Error("virtual hosts with different sticky session cookie names should not be equal")
+	}
 }
 
 func TestClusterEquality(t *testing.T) {
@@ -600,6 +616,20 @@ func newGenericIngress(specHost string, loadbalancerHost string) *k8s.Ingress {
 	}
 }
 
+func newGenericIngressWithAnnotations(specHost string, loadbalancerHost string, annotations map[string]string) *k8s.Ingress {
+	mergedAnnotations := map[string]string{
+		"kubernetes.io/ingress.class": "bar",
+	}
+	for k, v := range annotations {
+		mergedAnnotations[k] = v
+	}
+	return &k8s.Ingress{
+		Annotations: mergedAnnotations,
+		RulesHosts:  []string{specHost},
+		Upstreams:   []string{loadbalancerHost},
+	}
+}
+
 func newIngressIP(specHost string, loadbalancerHost string) *k8s.Ingress {
 	return &k8s.Ingress{
 		Annotations: map[string]string{
@@ -607,5 +637,73 @@ func newIngressIP(specHost string, loadbalancerHost string) *k8s.Ingress {
 		},
 		RulesHosts: []string{specHost},
 		Upstreams:  []string{loadbalancerHost},
+	}
+}
+
+func TestStickySessionAnnotationParsing(t *testing.T) {
+	ingress := newGenericIngressWithAnnotations("app.com", "foo.com", map[string]string{
+		"yggdrasil.uswitch.com/sticky-sessions":            "true",
+		"yggdrasil.uswitch.com/sticky-session-cookie-name": "my-session",
+		"yggdrasil.uswitch.com/sticky-session-cookie-path": "/",
+		"yggdrasil.uswitch.com/sticky-session-cookie-ttl":  "3600s",
+	})
+	timeouts := DefaultTimeouts{
+		Cluster: 30 * time.Second,
+		Route:   15 * time.Second,
+		PerTry:  5 * time.Second,
+	}
+	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+
+	if len(c.VirtualHosts) != 1 {
+		t.Fatal("expected 1 virtual host")
+	}
+	vhost := c.VirtualHosts[0]
+	if !vhost.StickySession {
+		t.Error("expected StickySession to be true")
+	}
+	if vhost.StickySessionCookieName != "my-session" {
+		t.Errorf("expected cookie name 'my-session', got '%s'", vhost.StickySessionCookieName)
+	}
+	if vhost.StickySessionCookiePath != "/" {
+		t.Errorf("expected cookie path '/', got '%s'", vhost.StickySessionCookiePath)
+	}
+	if vhost.StickySessionCookieTTL != 3600*time.Second {
+		t.Errorf("expected cookie TTL 3600s, got %v", vhost.StickySessionCookieTTL)
+	}
+}
+
+func TestStickySessionMissingAnnotations(t *testing.T) {
+	ingress := newGenericIngressWithAnnotations("app.com", "foo.com", map[string]string{
+		"yggdrasil.uswitch.com/sticky-sessions": "true",
+	})
+	timeouts := DefaultTimeouts{
+		Cluster: 30 * time.Second,
+		Route:   15 * time.Second,
+		PerTry:  5 * time.Second,
+	}
+	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+
+	if len(c.VirtualHosts) != 1 {
+		t.Fatal("expected 1 virtual host")
+	}
+	if c.VirtualHosts[0].StickySession {
+		t.Error("expected StickySession to be false when required annotations are missing")
+	}
+}
+
+func TestStickySessionDisabled(t *testing.T) {
+	ingress := newGenericIngress("app.com", "foo.com")
+	timeouts := DefaultTimeouts{
+		Cluster: 30 * time.Second,
+		Route:   15 * time.Second,
+		PerTry:  5 * time.Second,
+	}
+	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+
+	if len(c.VirtualHosts) != 1 {
+		t.Fatal("expected 1 virtual host")
+	}
+	if c.VirtualHosts[0].StickySession {
+		t.Error("expected StickySession to be false when annotation is absent")
 	}
 }

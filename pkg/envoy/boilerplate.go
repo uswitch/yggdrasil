@@ -16,11 +16,15 @@ import (
 	eal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	gal "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	eauthz "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	stateful_session "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	cookie_session "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	hcfg "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
 	tlsInspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	previousHosts "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	envoy_extension_http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcherv3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -121,6 +125,40 @@ func makeVirtualHost(vhost *virtualHost, reselectionAttempts int64, defaultRetry
 			},
 		},
 	}
+
+	if vhost.StickySession {
+		cookieConfig := &cookie_session.CookieBasedSessionState{
+			Cookie: &httpv3.Cookie{
+				Name: vhost.StickySessionCookieName,
+				Ttl:  &duration.Duration{Seconds: int64(vhost.StickySessionCookieTTL.Seconds())},
+				Path: vhost.StickySessionCookiePath,
+			},
+		}
+		anyCookieConfig, err := anypb.New(cookieConfig)
+		if err != nil {
+			return &route.VirtualHost{}, fmt.Errorf("failed to marshal cookie session config: %s", err)
+		}
+
+		perRouteConfig := &stateful_session.StatefulSessionPerRoute{
+			Override: &stateful_session.StatefulSessionPerRoute_StatefulSession{
+				StatefulSession: &stateful_session.StatefulSession{
+					SessionState: &core.TypedExtensionConfig{
+						Name:        "envoy.http.stateful_session.cookie",
+						TypedConfig: anyCookieConfig,
+					},
+				},
+			},
+		}
+		anyPerRouteConfig, err := anypb.New(perRouteConfig)
+		if err != nil {
+			return &route.VirtualHost{}, fmt.Errorf("failed to marshal stateful session per-route config: %s", err)
+		}
+
+		virtualHost.TypedPerFilterConfig = map[string]*anypb.Any{
+			statefulSessionFilterName: anyPerRouteConfig,
+		}
+	}
+
 	return &virtualHost, nil
 }
 
@@ -267,6 +305,12 @@ func (c *KubernetesConfigurator) makeConnectionManager(virtualHosts []*route.Vir
 			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: anyExtAuthzConfig},
 		})
 	}
+
+	statefulSessionFilter, err := makeStatefulSessionFilter()
+	if err != nil {
+		log.Fatalf("failed to create stateful session filter: %s", err)
+	}
+	filterBuilder.Add(statefulSessionFilter)
 
 	filter, err := filterBuilder.Filters()
 	if err != nil {
