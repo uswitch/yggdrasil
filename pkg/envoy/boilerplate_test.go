@@ -166,6 +166,74 @@ func TestMakeVirtualHostWithStickySession(t *testing.T) {
 	}
 }
 
+func boolPtr(v bool) *bool { return &v }
+
+func TestMakeClusterWithStickySessionOverrideHost(t *testing.T) {
+	c := cluster{
+		Name:                         "test_cluster",
+		VirtualHost:                  "test.example.com",
+		Timeout:                      5 * time.Second,
+		Hosts:                        []LBHost{{"host1", 1}},
+		StickySessionChangeOnFailure: boolPtr(false),
+	}
+	addresses := []*core.Address{
+		{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{Address: "host1", PortSpecifier: &core.SocketAddress_PortValue{PortValue: 443}}}},
+	}
+	result := makeCluster(c, "", UpstreamHealthCheck{}, -1, addresses)
+
+	if result.CommonLbConfig == nil {
+		t.Fatal("expected CommonLbConfig to be set")
+	}
+	if result.CommonLbConfig.OverrideHostStatus == nil {
+		t.Fatal("expected OverrideHostStatus to be set")
+	}
+	statuses := result.CommonLbConfig.OverrideHostStatus.Statuses
+	if len(statuses) != 4 {
+		t.Fatalf("expected 4 health statuses, got %d", len(statuses))
+	}
+	expected := []core.HealthStatus{core.HealthStatus_UNKNOWN, core.HealthStatus_HEALTHY, core.HealthStatus_UNHEALTHY, core.HealthStatus_DEGRADED}
+	for i, s := range statuses {
+		if s != expected[i] {
+			t.Errorf("expected status %v at index %d, got %v", expected[i], i, s)
+		}
+	}
+}
+
+func TestMakeClusterWithoutStickySessionOverrideHost(t *testing.T) {
+	c := cluster{
+		Name:                         "test_cluster",
+		VirtualHost:                  "test.example.com",
+		Timeout:                      5 * time.Second,
+		Hosts:                        []LBHost{{"host1", 1}},
+		StickySessionChangeOnFailure: boolPtr(true),
+	}
+	addresses := []*core.Address{
+		{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{Address: "host1", PortSpecifier: &core.SocketAddress_PortValue{PortValue: 443}}}},
+	}
+	result := makeCluster(c, "", UpstreamHealthCheck{}, -1, addresses)
+
+	if result.CommonLbConfig != nil {
+		t.Error("expected CommonLbConfig to be nil when StickySessionChangeOnFailure is true")
+	}
+}
+
+func TestMakeClusterWithStickySessionNil(t *testing.T) {
+	c := cluster{
+		Name:        "test_cluster",
+		VirtualHost: "test.example.com",
+		Timeout:     5 * time.Second,
+		Hosts:       []LBHost{{"host1", 1}},
+	}
+	addresses := []*core.Address{
+		{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{Address: "host1", PortSpecifier: &core.SocketAddress_PortValue{PortValue: 443}}}},
+	}
+	result := makeCluster(c, "", UpstreamHealthCheck{}, -1, addresses)
+
+	if result.CommonLbConfig != nil {
+		t.Error("expected CommonLbConfig to be nil when StickySessionChangeOnFailure is nil (sticky sessions disabled)")
+	}
+}
+
 func TestMakeVirtualHostWithoutStickySession(t *testing.T) {
 	vhost := &virtualHost{
 		Host:            "app.example.com",

@@ -691,6 +691,70 @@ func TestStickySessionMissingAnnotations(t *testing.T) {
 	}
 }
 
+func TestStickySessionChangeOnFailureFalse(t *testing.T) {
+	ingress := newGenericIngressWithAnnotations("app.com", "foo.com", map[string]string{
+		"yggdrasil.uswitch.com/sticky-sessions":                      "true",
+		"yggdrasil.uswitch.com/sticky-session-cookie-name":           "my-session",
+		"yggdrasil.uswitch.com/sticky-session-cookie-path":           "/",
+		"yggdrasil.uswitch.com/sticky-session-cookie-ttl":            "3600s",
+		"yggdrasil.uswitch.com/sticky-session-change-on-failure": "false",
+	})
+	timeouts := DefaultTimeouts{
+		Cluster: 30 * time.Second,
+		Route:   15 * time.Second,
+		PerTry:  5 * time.Second,
+	}
+	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+
+	if len(c.Clusters) != 1 {
+		t.Fatal("expected 1 cluster")
+	}
+	if c.Clusters[0].StickySessionChangeOnFailure == nil || *c.Clusters[0].StickySessionChangeOnFailure {
+		t.Error("expected StickySessionChangeOnFailure to be false")
+	}
+}
+
+func TestStickySessionChangeOnFailureDefault(t *testing.T) {
+	ingress := newGenericIngressWithAnnotations("app.com", "foo.com", map[string]string{
+		"yggdrasil.uswitch.com/sticky-sessions":            "true",
+		"yggdrasil.uswitch.com/sticky-session-cookie-name": "my-session",
+		"yggdrasil.uswitch.com/sticky-session-cookie-path": "/",
+		"yggdrasil.uswitch.com/sticky-session-cookie-ttl":  "3600s",
+	})
+	timeouts := DefaultTimeouts{
+		Cluster: 30 * time.Second,
+		Route:   15 * time.Second,
+		PerTry:  5 * time.Second,
+	}
+	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+
+	if len(c.Clusters) != 1 {
+		t.Fatal("expected 1 cluster")
+	}
+	if c.Clusters[0].StickySessionChangeOnFailure == nil || !*c.Clusters[0].StickySessionChangeOnFailure {
+		t.Error("expected StickySessionChangeOnFailure to be true by default")
+	}
+}
+
+func TestStickySessionChangeOnFailureWithoutStickySessions(t *testing.T) {
+	ingress := newGenericIngressWithAnnotations("app.com", "foo.com", map[string]string{
+		"yggdrasil.uswitch.com/sticky-session-change-on-failure": "false",
+	})
+	timeouts := DefaultTimeouts{
+		Cluster: 30 * time.Second,
+		Route:   15 * time.Second,
+		PerTry:  5 * time.Second,
+	}
+	c := translateIngresses([]*k8s.Ingress{ingress}, false, []*v1.Secret{}, timeouts, "/var/log/envoy/")
+
+	if len(c.Clusters) != 1 {
+		t.Fatal("expected 1 cluster")
+	}
+	if c.Clusters[0].StickySessionChangeOnFailure != nil {
+		t.Error("expected StickySessionChangeOnFailure to be nil when sticky sessions are disabled")
+	}
+}
+
 func TestStickySessionDisabled(t *testing.T) {
 	ingress := newGenericIngress("app.com", "foo.com")
 	timeouts := DefaultTimeouts{

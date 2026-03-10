@@ -554,6 +554,18 @@ func makeCluster(c cluster, ca string, healthCfg UpstreamHealthCheck, outlierPer
 		},
 		HealthChecks: healthChecks,
 	}
+	if c.StickySessionChangeOnFailure != nil && !*c.StickySessionChangeOnFailure {
+		cluster.CommonLbConfig = &v3cluster.Cluster_CommonLbConfig{
+			OverrideHostStatus: &core.HealthStatusSet{
+				Statuses: []core.HealthStatus{
+					core.HealthStatus_UNKNOWN,
+					core.HealthStatus_HEALTHY,
+					core.HealthStatus_UNHEALTHY,
+					core.HealthStatus_DEGRADED,
+				},
+			},
+		}
+	}
 	if outlierPercentage >= 0 {
 		cluster.OutlierDetection = &v3cluster.OutlierDetection{
 			MaxEjectionPercent: &wrappers.UInt32Value{Value: uint32(outlierPercentage)},
