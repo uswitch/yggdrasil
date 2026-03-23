@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"sort"
 
-	v1 "k8s.io/api/core/v1"
-
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
@@ -84,7 +82,7 @@ func convertExtensionsv1beta1Ingress(i *extensionsv1beta1.Ingress) *Ingress {
 			}
 			return
 		}(&i.Spec.Rules),
-		Upstreams: func(i *[]v1.LoadBalancerIngress) (upstreams []string) {
+		Upstreams: func(i *[]extensionsv1beta1.IngressLoadBalancerIngress) (upstreams []string) {
 			for _, j := range *i {
 				if j.Hostname != "" {
 					upstreams = append(upstreams, j.Hostname)
@@ -121,7 +119,7 @@ func convertNetworkingv1beta1Ingress(i *networkingv1beta1.Ingress) *Ingress {
 			}
 			return
 		}(&i.Spec.Rules),
-		Upstreams: func(i *[]v1.LoadBalancerIngress) (upstreams []string) {
+		Upstreams: func(i *[]networkingv1beta1.IngressLoadBalancerIngress) (upstreams []string) {
 			for _, j := range *i {
 				if j.Hostname != "" {
 					upstreams = append(upstreams, j.Hostname)
@@ -158,7 +156,7 @@ func convertNetworkingv1Ingress(i *networkingv1.Ingress) *Ingress {
 			}
 			return
 		}(&i.Spec.Rules),
-		Upstreams: func(i *[]v1.LoadBalancerIngress) (upstreams []string) {
+		Upstreams: func(i *[]networkingv1.IngressLoadBalancerIngress) (upstreams []string) {
 			for _, j := range *i {
 				if j.Hostname != "" {
 					upstreams = append(upstreams, j.Hostname)

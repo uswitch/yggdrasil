@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
@@ -26,7 +27,7 @@ type callbacks struct {
 	fetchResp int
 }
 
-func (c *callbacks) OnDeltaStreamClosed(int64) {}
+func (c *callbacks) OnDeltaStreamClosed(int64, *corev3.Node) {}
 func (c *callbacks) OnDeltaStreamOpen(context.Context, int64, string) error {
 	return nil
 }
@@ -38,7 +39,7 @@ func (c *callbacks) OnStreamDeltaResponse(int64, *discovery.DeltaDiscoveryReques
 func (c *callbacks) OnStreamOpen(context.Context, int64, string) error {
 	return nil
 }
-func (c *callbacks) OnStreamClosed(int64) {}
+func (c *callbacks) OnStreamClosed(int64, *corev3.Node) {}
 func (c *callbacks) OnStreamRequest(int64, *discovery.DiscoveryRequest) error {
 	return nil
 }
