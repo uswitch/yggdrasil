@@ -581,8 +581,8 @@ func newIngress(specHost string, loadbalancerHost string) v1beta1.Ingress {
 			},
 		},
 		Status: v1beta1.IngressStatus{
-			LoadBalancer: v1.LoadBalancerStatus{
-				Ingress: []v1.LoadBalancerIngress{
+			LoadBalancer: v1beta1.IngressLoadBalancerStatus{
+				Ingress: []v1beta1.IngressLoadBalancerIngress{
 					{Hostname: loadbalancerHost},
 				},
 			},

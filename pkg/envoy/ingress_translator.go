@@ -378,7 +378,7 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 
 				if syncSecrets && envoyIngress.vhost.TlsKey == "" && envoyIngress.vhost.TlsCert == "" {
 					if hostTlsSecret, err := getHostTlsSecret(i, ruleHost, secrets); err != nil {
-						logrus.Infof(err.Error())
+						logrus.Infof("%s", err.Error())
 					} else {
 						valid, err := validateTlsSecret(hostTlsSecret)
 						if err != nil {
