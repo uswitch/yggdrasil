@@ -75,6 +75,11 @@ type virtualHost struct {
 	TlsKey          string
 	TlsCert         string
 	RetryOn         string
+
+	StickySession           bool
+	StickySessionCookieName string
+	StickySessionCookiePath string
+	StickySessionCookieTTL  time.Duration
 }
 
 func (v *virtualHost) Equals(other *virtualHost) bool {
@@ -88,7 +93,11 @@ func (v *virtualHost) Equals(other *virtualHost) bool {
 		v.PerTryTimeout == other.PerTryTimeout &&
 		v.TlsKey == other.TlsKey &&
 		v.TlsCert == other.TlsCert &&
-		v.RetryOn == other.RetryOn
+		v.RetryOn == other.RetryOn &&
+		v.StickySession == other.StickySession &&
+		v.StickySessionCookieName == other.StickySessionCookieName &&
+		v.StickySessionCookiePath == other.StickySessionCookiePath &&
+		v.StickySessionCookieTTL == other.StickySessionCookieTTL
 }
 
 type LBHost struct {
@@ -97,11 +106,22 @@ type LBHost struct {
 }
 
 type cluster struct {
-	Name            string
-	VirtualHost     string
-	HealthCheckPath string
-	Timeout         time.Duration
-	Hosts           []LBHost
+	Name                         string
+	VirtualHost                  string
+	HealthCheckPath              string
+	Timeout                      time.Duration
+	Hosts                        []LBHost
+	StickySessionChangeOnFailure *bool // nil = not set (sticky sessions disabled), false = persist to unhealthy backend
+}
+
+func boolPtrEqual(a, b *bool) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }
 
 func (c *cluster) identity() string {
@@ -130,6 +150,10 @@ func (c *cluster) Equals(other *cluster) bool {
 	}
 
 	if len(c.Hosts) != len(other.Hosts) {
+		return false
+	}
+
+	if !boolPtrEqual(c.StickySessionChangeOnFailure, other.StickySessionChangeOnFailure) {
 		return false
 	}
 
@@ -309,6 +333,32 @@ func validateTlsSecret(secret *v1.Secret) (bool, error) {
 	return true, nil
 }
 
+func (envoyIng *envoyIngress) addStickySession(ingress *k8s.Ingress) {
+	if ingress.Annotations["yggdrasil.uswitch.com/sticky-sessions"] != "true" {
+		return
+	}
+	cookieName := ingress.Annotations["yggdrasil.uswitch.com/sticky-session-cookie-name"]
+	cookiePath := ingress.Annotations["yggdrasil.uswitch.com/sticky-session-cookie-path"]
+	cookieTTLStr := ingress.Annotations["yggdrasil.uswitch.com/sticky-session-cookie-ttl"]
+
+	if cookieName == "" || cookiePath == "" || cookieTTLStr == "" {
+		logrus.Warnf("sticky-sessions enabled for ingress %s/%s but missing required annotations (cookie-name, cookie-path, cookie-ttl), skipping sticky sessions", ingress.Namespace, ingress.Name)
+		return
+	}
+	cookieTTL, err := time.ParseDuration(cookieTTLStr)
+	if err != nil {
+		logrus.Warnf("invalid sticky-session-cookie-ttl for ingress %s/%s: %s", ingress.Namespace, ingress.Name, err)
+		return
+	}
+	envoyIng.vhost.StickySession = true
+	envoyIng.vhost.StickySessionCookieName = cookieName
+	envoyIng.vhost.StickySessionCookiePath = cookiePath
+	envoyIng.vhost.StickySessionCookieTTL = cookieTTL
+
+	changeOnFailure := ingress.Annotations["yggdrasil.uswitch.com/sticky-session-change-on-failure"] != "false"
+	envoyIng.cluster.StickySessionChangeOnFailure = &changeOnFailure
+}
+
 func (envoyIng *envoyIngress) addRetryOn(ingress *k8s.Ingress) {
 	if ingress.Annotations["yggdrasil.uswitch.com/retry-on"] != "" {
 		retryOn := ingress.Annotations["yggdrasil.uswitch.com/retry-on"]
@@ -375,6 +425,8 @@ func translateIngresses(ingresses []*k8s.Ingress, syncSecrets bool, secrets []*v
 				}
 
 				envoyIngress.addRetryOn(i)
+
+				envoyIngress.addStickySession(i)
 
 				if syncSecrets && envoyIngress.vhost.TlsKey == "" && envoyIngress.vhost.TlsCert == "" {
 					if hostTlsSecret, err := getHostTlsSecret(i, ruleHost, secrets); err != nil {
